@@ -38,7 +38,7 @@ type SyncGSuite interface {
 
 // SyncGSuite is an object type that will synchronize real users and groups
 type syncGSuite struct {
-	aws    aws.Client
+	aws    aws.SCIMClient
 	google google.Client
 	cfg    *config.Config
 
@@ -46,7 +46,7 @@ type syncGSuite struct {
 }
 
 // New will create a new SyncGSuite object
-func New(cfg *config.Config, a aws.Client, g google.Client) SyncGSuite {
+func New(cfg *config.Config, a aws.SCIMClient, g google.Client) SyncGSuite {
 	return &syncGSuite{
 		aws:    a,
 		google: g,
@@ -712,7 +712,7 @@ func DoSync(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	awsClient, err := aws.NewClient(
+	awsSCIMClient, err := aws.NewSCIMClient(
 		httpClient,
 		&aws.Config{
 			Endpoint: cfg.SCIMEndpoint,
@@ -722,7 +722,7 @@ func DoSync(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	c := New(cfg, awsClient, googleClient)
+	c := New(cfg, awsSCIMClient, googleClient)
 
 	log.WithField("sync_method", cfg.SyncMethod).Info("syncing")
 	if cfg.SyncMethod == config.DefaultSyncMethod {

@@ -48,7 +48,7 @@ const (
 
 // Client represents an interface of methods used
 // to communicate with AWS SSO
-type Client interface {
+type SCIMClient interface {
 	AddUserToGroup(*User, *Group) error
 	CreateGroup(*Group) (*Group, error)
 	CreateUser(*User) (*User, error)
@@ -65,7 +65,7 @@ type Client interface {
 	RemoveUserFromGroup(*User, *Group) error
 }
 
-type client struct {
+type scimClient struct {
 	httpClient  HttpClient
 	endpointURL *url.URL
 	bearerToken string
@@ -74,12 +74,12 @@ type client struct {
 // NewClient creates a new client to talk with AWS SSO's SCIM endpoint. It
 // requires a http.Client{} as well as the URL and bearer token from the
 // console. If the URL is not parsable, an error will be thrown.
-func NewClient(c HttpClient, config *Config) (Client, error) {
+func NewSCIMClient(c HttpClient, config *Config) (SCIMClient, error) {
 	u, err := url.Parse(config.Endpoint)
 	if err != nil {
 		return nil, err
 	}
-	return &client{
+	return &scimClient{
 		httpClient:  c,
 		endpointURL: u,
 		bearerToken: config.Token,
@@ -88,7 +88,7 @@ func NewClient(c HttpClient, config *Config) (Client, error) {
 
 // sendRequestWithBody will send the body given to the url/method combination
 // with the right Bearer token as well as the correct content type for SCIM.
-func (c *client) sendRequestWithBody(method string, url string, body interface{}) (response []byte, err error) {
+func (c *scimClient) sendRequestWithBody(method string, url string, body interface{}) (response []byte, err error) {
 	// Convert the body to JSON
 	d, err := json.Marshal(body)
 	if err != nil {
@@ -128,7 +128,7 @@ func (c *client) sendRequestWithBody(method string, url string, body interface{}
 	return
 }
 
-func (c *client) sendRequest(method string, url string) (response []byte, err error) {
+func (c *scimClient) sendRequest(method string, url string) (response []byte, err error) {
 	r, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return
@@ -157,7 +157,7 @@ func (c *client) sendRequest(method string, url string) (response []byte, err er
 }
 
 // IsUserInGroup will determine if user (u) is in group (g)
-func (c *client) IsUserInGroup(u *User, g *Group) (bool, error) {
+func (c *scimClient) IsUserInGroup(u *User, g *Group) (bool, error) {
 	if g == nil {
 		return false, ErrGroupNotSpecified
 	}
@@ -192,7 +192,7 @@ func (c *client) IsUserInGroup(u *User, g *Group) (bool, error) {
 	return r.TotalResults > 0, nil
 }
 
-func (c *client) groupChangeOperation(op OperationType, u *User, g *Group) error {
+func (c *scimClient) groupChangeOperation(op OperationType, u *User, g *Group) error {
 	if g == nil {
 		return ErrGroupNotSpecified
 	}
@@ -231,17 +231,17 @@ func (c *client) groupChangeOperation(op OperationType, u *User, g *Group) error
 }
 
 // AddUserToGroup will add the user specified to the group specified
-func (c *client) AddUserToGroup(u *User, g *Group) error {
+func (c *scimClient) AddUserToGroup(u *User, g *Group) error {
 	return c.groupChangeOperation(OperationAdd, u, g)
 }
 
 // RemoveUserFromGroup will remove the user specified from the group specified
-func (c *client) RemoveUserFromGroup(u *User, g *Group) error {
+func (c *scimClient) RemoveUserFromGroup(u *User, g *Group) error {
 	return c.groupChangeOperation(OperationRemove, u, g)
 }
 
 // FindUserByEmail will find the user by the email address specified
-func (c *client) FindUserByEmail(email string) (*User, error) {
+func (c *scimClient) FindUserByEmail(email string) (*User, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err
@@ -274,7 +274,7 @@ func (c *client) FindUserByEmail(email string) (*User, error) {
 }
 
 // FindUserByID will find the user by the email address specified
-func (c *client) FindUserByID(id string) (*User, error) {
+func (c *scimClient) FindUserByID(id string) (*User, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err
@@ -301,7 +301,7 @@ func (c *client) FindUserByID(id string) (*User, error) {
 }
 
 // FindGroupByDisplayName will find the group by its displayname.
-func (c *client) FindGroupByDisplayName(name string) (*Group, error) {
+func (c *scimClient) FindGroupByDisplayName(name string) (*Group, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err
@@ -334,7 +334,7 @@ func (c *client) FindGroupByDisplayName(name string) (*Group, error) {
 }
 
 // CreateUser will create the user specified
-func (c *client) CreateUser(u *User) (*User, error) {
+func (c *scimClient) CreateUser(u *User) (*User, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func (c *client) CreateUser(u *User) (*User, error) {
 }
 
 // UpdateUser will update/replace the user specified
-func (c *client) UpdateUser(u *User) (*User, error) {
+func (c *scimClient) UpdateUser(u *User) (*User, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err
@@ -394,7 +394,7 @@ func (c *client) UpdateUser(u *User) (*User, error) {
 }
 
 // DeleteUser will remove the current user from the directory
-func (c *client) DeleteUser(u *User) error {
+func (c *scimClient) DeleteUser(u *User) error {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return err
@@ -414,7 +414,7 @@ func (c *client) DeleteUser(u *User) error {
 }
 
 // CreateGroup will create a group given
-func (c *client) CreateGroup(g *Group) (*Group, error) {
+func (c *scimClient) CreateGroup(g *Group) (*Group, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err
@@ -441,7 +441,7 @@ func (c *client) CreateGroup(g *Group) (*Group, error) {
 }
 
 // DeleteGroup will delete the group specified
-func (c *client) DeleteGroup(g *Group) error {
+func (c *scimClient) DeleteGroup(g *Group) error {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return err
@@ -461,7 +461,7 @@ func (c *client) DeleteGroup(g *Group) error {
 }
 
 // GetGroups will return existing groups
-func (c *client) GetGroups() ([]*Group, error) {
+func (c *scimClient) GetGroups() ([]*Group, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err
@@ -493,7 +493,7 @@ func (c *client) GetGroups() ([]*Group, error) {
 }
 
 // GetGroupMembers will return existing groups
-func (c *client) GetGroupMembers(g *Group) ([]*User, error) {
+func (c *scimClient) GetGroupMembers(g *Group) ([]*User, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err
@@ -538,7 +538,7 @@ func (c *client) GetGroupMembers(g *Group) ([]*User, error) {
 }
 
 // GetUsers will return existing users
-func (c *client) GetUsers() ([]*User, error) {
+func (c *scimClient) GetUsers() ([]*User, error) {
 	startURL, err := url.Parse(c.endpointURL.String())
 	if err != nil {
 		return nil, err

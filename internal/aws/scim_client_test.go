@@ -68,13 +68,13 @@ func (r *httpReqMatcher) String() string {
 	return fmt.Sprintf("is %s", r.httpReq.URL)
 }
 
-func TestNewClient(t *testing.T) {
+func TestNewSCIMClient(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: ":foo",
 		Token:    "bearerToken",
 	})
@@ -88,12 +88,12 @@ func TestSendRequestBadUrl(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
 	assert.NoError(t, err)
-	cc := c.(*client)
+	cc := c.(*scimClient)
 
 	r, err := cc.sendRequest(http.MethodGet, ":foo")
 	assert.Error(t, err)
@@ -106,12 +106,12 @@ func TestSendRequestBadStatusCode(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
 	assert.NoError(t, err)
-	cc := c.(*client)
+	cc := c.(*scimClient)
 
 	calledURL, _ := url.Parse("https://scim.example.com/")
 
@@ -136,12 +136,12 @@ func TestSendRequestCheckAuthHeader(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
 	assert.NoError(t, err)
-	cc := c.(*client)
+	cc := c.(*scimClient)
 
 	calledURL, _ := url.Parse("https://scim.example.com/")
 
@@ -171,12 +171,12 @@ func TestSendRequestWithBodyCheckHeaders(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
 	assert.NoError(t, err)
-	cc := c.(*client)
+	cc := c.(*scimClient)
 
 	calledURL, _ := url.Parse("https://scim.example.com/")
 
@@ -208,7 +208,7 @@ func TestClient_IsUserInGroup(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -296,7 +296,7 @@ func TestClient_FindUserByEmail(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -372,7 +372,7 @@ func TestClient_FindGroupByDisplayName(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -448,7 +448,7 @@ func TestClient_DeleteGroup(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -487,7 +487,7 @@ func TestClient_DeleteUser(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -530,7 +530,7 @@ func TestClient_CreateUser(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -575,7 +575,7 @@ func TestClient_UpdateUser(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -620,7 +620,7 @@ func TestClient_CreateGroup(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -661,7 +661,7 @@ func TestClient_AddUserToGroup(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
@@ -707,7 +707,7 @@ func TestClient_RemoveUserFromGroup(t *testing.T) {
 
 	x := mock.NewMockIHttpClient(ctrl)
 
-	c, err := NewClient(x, &Config{
+	c, err := NewSCIMClient(x, &Config{
 		Endpoint: "https://scim.example.com/",
 		Token:    "bearerToken",
 	})
