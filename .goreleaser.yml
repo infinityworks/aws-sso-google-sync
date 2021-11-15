@@ -19,7 +19,7 @@ builds:
     - goos: windows
       goarch: 386
   ldflags:
-     - -s -w -X github.com/awslabs/ssosync/cmd.version={{.Version}} -X github.com/awslabs/ssosync/cmd.commit={{.Commit}} -X github.com/awslabs/ssosync/cmd.date={{.Date}} -X github.com/awslabs/ssosync/cmd.builtBy=goreleaser
+     - -s -w -X github.com/infinityworks/aws-sso-google-sync/cmd.version={{.Version}} -X github.com/infinityworks/aws-sso-google-sync/cmd.commit={{.Commit}} -X github.com/infinityworks/aws-sso-google-sync/cmd.date={{.Date}} -X github.com/infinityworks/aws-sso-google-sync/cmd.builtBy=goreleaser
 checksum:
   name_template: '{{ .ProjectName }}_checksums.txt'
 changelog:

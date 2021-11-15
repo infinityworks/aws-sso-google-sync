@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/awslabs/ssosync/internal"
-	"github.com/awslabs/ssosync/internal/config"
+	"github.com/infinityworks/aws-sso-google-sync/internal"
+	"github.com/infinityworks/aws-sso-google-sync/internal/config"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -47,7 +47,7 @@ var rootCmd = &cobra.Command{
 	Short:   "SSO Sync, making AWS SSO be populated automagically",
 	Long: `A command line tool to enable you to synchronise your Google
 Apps (Google Workspace) users to AWS Single Sign-on (AWS SSO)
-Complete documentation is available at https://github.com/awslabs/ssosync`,
+Complete documentation is available at https://github.com/infinityworks/aws-sso-google-sync`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

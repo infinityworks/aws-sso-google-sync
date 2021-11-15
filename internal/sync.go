@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/awslabs/ssosync/internal/aws"
-	"github.com/awslabs/ssosync/internal/config"
-	"github.com/awslabs/ssosync/internal/google"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/infinityworks/aws-sso-google-sync/internal/aws"
+	"github.com/infinityworks/aws-sso-google-sync/internal/config"
+	"github.com/infinityworks/aws-sso-google-sync/internal/google"
 
 	log "github.com/sirupsen/logrus"
 	admin "google.golang.org/api/admin/directory/v1"
