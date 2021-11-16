@@ -74,7 +74,7 @@ type scimClient struct {
 // NewClient creates a new client to talk with AWS SSO's SCIM endpoint. It
 // requires a http.Client{} as well as the URL and bearer token from the
 // console. If the URL is not parsable, an error will be thrown.
-func NewSCIMClient(c HttpClient, config *Config) (SCIMClient, error) {
+func NewSCIMClient(c HttpClient, config *SCIMConfig) (SCIMClient, error) {
 	u, err := url.Parse(config.Endpoint)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (c *scimClient) sendRequest(method string, url string) (response []byte, er
 		return
 	}
 
-	log.WithFields(log.Fields{"url": url, "method": method})
+	log.WithFields(log.Fields{"url": url, "method": method}).Debug("sending request to scim endpoint")
 
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.bearerToken))
 

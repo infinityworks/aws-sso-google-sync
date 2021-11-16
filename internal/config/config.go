@@ -5,6 +5,8 @@ package config
 type Config struct {
 	// Verbose toggles the verbosity
 	Debug bool
+	// Enables dry run mode
+	DryRun bool
 	// LogLevel is the level with with to log for this config
 	LogLevel string `mapstructure:"log_level"`
 	// LogFormat is the format that is used for logging
@@ -29,8 +31,8 @@ type Config struct {
 	IgnoreGroups []string `mapstructure:"ignore_groups"`
 	// Include groups ...
 	IncludeGroups []string `mapstructure:"include_groups"`
-	// SyncMethod allow to defined the sync method used to get the user and groups from Google Workspace
-	SyncMethod string `mapstructure:"sync_method"`
+	// DynamoDB Table used to store user and group membership on AWS side due to 50-limit from SCIM endpoint: https://github.com/aws/aws-sdk/issues/109
+	DynamoDBTable string `mapstructure:"dynamodb_table"`
 }
 
 const (
@@ -40,10 +42,10 @@ const (
 	DefaultLogFormat = "text"
 	// DefaultDebug is the default debug status.
 	DefaultDebug = false
+	// DefaultDryRun is the default dry run mode
+	DefaultDryRun = false
 	// DefaultGoogleCredentials is the default credentials path
 	DefaultGoogleCredentials = "credentials.json"
-	// DefaultSyncMethod is the default sync method to use.
-	DefaultSyncMethod = "groups"
 )
 
 // New returns a new Config
@@ -52,7 +54,6 @@ func New() *Config {
 		Debug:             DefaultDebug,
 		LogLevel:          DefaultLogLevel,
 		LogFormat:         DefaultLogFormat,
-		SyncMethod:        DefaultSyncMethod,
 		GoogleCredentials: DefaultGoogleCredentials,
 	}
 }

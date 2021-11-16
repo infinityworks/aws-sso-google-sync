@@ -14,7 +14,6 @@ Metadata:
       - Label:
           default: "Advanced Configuration"
         Parameters:
-          - SyncMethod
           - GoogleUserMatch
           - GoogleGroupMatch
           - LogLevel
@@ -63,6 +62,10 @@ Parameters:
     AllowedValues:
       - json
       - text
+  DynamoDBTableName:
+    Type: String
+    Description: Name of DynamoDB table to store AWS SSO groups and user membership
+    Default: aws-sso-google-sync
   GoogleCredentials:
     Type: String
     Description: Credentials to log into Google (content of credentials.json)
@@ -97,18 +100,8 @@ Parameters:
       Ignore these Google Workspace users
   IncludeGroups:
     Type: String
-    Description: | 
-      Include only these Google Workspace groups. (Only applicable for SyncMethod user_groups)
-  SyncMethod:
-    Type: String
-    Description: Sync method to use
-    Default: groups
-    AllowedValues:
-      - groups
-      - users_groups
-      
-      
-      
+    Description: |
+      Include only these Google Workspace groups.
 
 Resources:
   SSOSyncFunction:
@@ -127,10 +120,10 @@ Resources:
           SSOSYNC_SCIM_ACCESS_TOKEN: !Ref AWSSCIMAccessTokenSecret
           SSOSYNC_USER_MATCH: !Ref GoogleUserMatch
           SSOSYNC_GROUP_MATCH: !Ref GoogleGroupMatch
-          SSOSYNC_SYNC_METHOD: !Ref SyncMethod
           SSOSYNC_IGNORE_GROUPS: !Ref IgnoreGroups
           SSOSYNC_IGNORE_USERS: !Ref IgnoreUsers
           SSOSYNC_INCLUDE_GROUPS: !Ref IncludeGroups
+          SSOSYNC_DYNAMODB_TABLE: !Ref DynamoDBTable
       Policies:
         - Statement:
             - Sid: SSMGetParameterPolicy
@@ -149,6 +142,20 @@ Resources:
           Properties:
             Enabled: true
             Schedule: !Ref ScheduleExpression
+
+  GroupsAndMembersDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDBTableName
+      BillingMode: "PAY_PER_REQUEST"
+      SSESpecification:
+        SSEEnabled: true
+      AttributeDefinitions:
+        - AttributeName: Name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Name
+          KeyType: HASH
 
   AWSGoogleCredentialsSecret:
     Type: "AWS::SecretsManager::Secret"

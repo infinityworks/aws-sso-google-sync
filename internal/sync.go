@@ -31,224 +31,28 @@ import (
 
 // SyncGSuite is the interface for synchronizing users/groups
 type SyncGSuite interface {
-	SyncUsers(string) error
-	SyncGroups(string) error
 	SyncGroupsUsers(string) error
 }
 
 // SyncGSuite is an object type that will synchronize real users and groups
 type syncGSuite struct {
-	aws    aws.SCIMClient
-	google google.Client
-	cfg    *config.Config
+	aws         aws.SCIMClient
+	awsDynamoDB aws.DynamoDBClient
+	google      google.Client
+	cfg         *config.Config
 
 	users map[string]*aws.User
 }
 
 // New will create a new SyncGSuite object
-func New(cfg *config.Config, a aws.SCIMClient, g google.Client) SyncGSuite {
+func New(cfg *config.Config, a aws.SCIMClient, d aws.DynamoDBClient, g google.Client) SyncGSuite {
 	return &syncGSuite{
-		aws:    a,
-		google: g,
-		cfg:    cfg,
-		users:  make(map[string]*aws.User),
+		aws:         a,
+		awsDynamoDB: d,
+		google:      g,
+		cfg:         cfg,
+		users:       make(map[string]*aws.User),
 	}
-}
-
-// SyncUsers will Sync Google Users to AWS SSO SCIM
-// References:
-// * https://developers.google.com/admin-sdk/directory/v1/guides/search-users
-// query possible values:
-// '' --> empty or not defined
-//  name:'Jane'
-//  email:admin*
-//  isAdmin=true
-//  manager='janesmith@example.com'
-//  orgName=Engineering orgTitle:Manager
-//  EmploymentData.projects:'GeneGnomes'
-func (s *syncGSuite) SyncUsers(query string) error {
-	log.Debug("get deleted users")
-	deletedUsers, err := s.google.GetDeletedUsers()
-	if err != nil {
-		log.Warn("Error Getting Deleted Users")
-		return err
-	}
-
-	for _, u := range deletedUsers {
-		log.WithFields(log.Fields{
-			"email": u.PrimaryEmail,
-		}).Info("deleting google user")
-
-		uu, err := s.aws.FindUserByEmail(u.PrimaryEmail)
-		if err != aws.ErrUserNotFound && err != nil {
-			log.WithFields(log.Fields{
-				"email": u.PrimaryEmail,
-			}).Warn("Error deleting google user")
-			return err
-		}
-
-		if err == aws.ErrUserNotFound {
-			log.WithFields(log.Fields{
-				"email": u.PrimaryEmail,
-			}).Debug("User already deleted")
-			continue
-		}
-
-		if err := s.aws.DeleteUser(uu); err != nil {
-			log.WithFields(log.Fields{
-				"email": u.PrimaryEmail,
-			}).Warn("Error deleting user")
-			return err
-		}
-	}
-
-	log.Debug("get active google users")
-	googleUsers, err := s.google.GetUsers(query)
-	if err != nil {
-		return err
-	}
-
-	for _, u := range googleUsers {
-		if s.ignoreUser(u.PrimaryEmail) {
-			continue
-		}
-
-		ll := log.WithFields(log.Fields{
-			"email": u.PrimaryEmail,
-		})
-
-		ll.Debug("finding user")
-		uu, _ := s.aws.FindUserByEmail(u.PrimaryEmail)
-		if uu != nil {
-			s.users[uu.Username] = uu
-			// Update the user when suspended state is changed
-			if uu.Active == u.Suspended {
-				log.Debug("Mismatch active/suspended, updating user")
-				// create new user object and update the user
-				_, err := s.aws.UpdateUser(aws.UpdateUser(
-					uu.ID,
-					u.Name.GivenName,
-					u.Name.FamilyName,
-					u.PrimaryEmail,
-					!u.Suspended))
-				if err != nil {
-					return err
-				}
-			}
-			continue
-		}
-
-		ll.Info("creating user")
-		uu, err := s.aws.CreateUser(aws.NewUser(
-			u.Name.GivenName,
-			u.Name.FamilyName,
-			u.PrimaryEmail,
-			!u.Suspended))
-		if err != nil {
-			return err
-		}
-
-		s.users[uu.Username] = uu
-	}
-
-	return nil
-}
-
-// SyncGroups will sync groups from Google -> AWS SSO
-// References:
-// * https://developers.google.com/admin-sdk/directory/v1/guides/search-groups
-// query possible values:
-// '' --> empty or not defined
-//  name='contact'
-//  email:admin*
-//  memberKey=user@company.com
-//  name:contact* email:contact*
-//  name:Admin* email:aws-*
-//  email:aws-*
-func (s *syncGSuite) SyncGroups(query string) error {
-
-	log.WithField("query", query).Debug("get google groups")
-	googleGroups, err := s.google.GetGroups(query)
-	if err != nil {
-		return err
-	}
-
-	correlatedGroups := make(map[string]*aws.Group)
-
-	for _, g := range googleGroups {
-		if s.ignoreGroup(g.Email) || !s.includeGroup(g.Email) {
-			continue
-		}
-
-		log := log.WithFields(log.Fields{
-			"group": g.Email,
-		})
-
-		log.Debug("Check group")
-		var group *aws.Group
-
-		gg, err := s.aws.FindGroupByDisplayName(g.Email)
-		if err != nil && err != aws.ErrGroupNotFound {
-			return err
-		}
-
-		if gg != nil {
-			log.Debug("Found group")
-			correlatedGroups[gg.DisplayName] = gg
-			group = gg
-		} else {
-			log.Info("Creating group in AWS")
-			newGroup, err := s.aws.CreateGroup(aws.NewGroup(g.Email))
-			if err != nil {
-				return err
-			}
-			correlatedGroups[newGroup.DisplayName] = newGroup
-			group = newGroup
-		}
-
-		groupMembers, err := s.google.GetGroupMembers(g)
-		if err != nil {
-			return err
-		}
-
-		memberList := make(map[string]*admin.Member)
-
-		log.Info("Start group user sync")
-
-		for _, m := range groupMembers {
-			if _, ok := s.users[m.Email]; ok {
-				memberList[m.Email] = m
-			}
-		}
-
-		for _, u := range s.users {
-			log.WithField("user", u.Username).Debug("Checking user is in group already")
-			b, err := s.aws.IsUserInGroup(u, group)
-			if err != nil {
-				return err
-			}
-
-			if _, ok := memberList[u.Username]; ok {
-				if !b {
-					log.WithField("user", u.Username).Info("Adding user to group")
-					err := s.aws.AddUserToGroup(u, group)
-					if err != nil {
-						return err
-					}
-				}
-			} else {
-				if b {
-					log.WithField("user", u.Username).Warn("Removing user from group")
-					err := s.aws.RemoveUserFromGroup(u, group)
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	return nil
 }
 
 // SyncGroupsUsers will sync groups and its members from Google -> AWS SSO SCIM
@@ -293,28 +97,39 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 		return err
 	}
 
-	log.Info("get existing aws groups")
-	awsGroups, err := s.aws.GetGroups()
+	log.Debug("getting existing sso groups and users from dynamodb")
+	awsGroups, err := s.awsDynamoDB.GetGroupsWithMembers()
 	if err != nil {
-		log.Error("error getting aws groups")
+		log.Error("error getting aws groups and users from dynamodb")
 		return err
 	}
 
-	log.Info("get existing aws users")
-	awsUsers, err := s.aws.GetUsers()
-	if err != nil {
-		return err
+	var awsUserEmails []string
+	for _, group := range awsGroups {
+		awsUserEmails = append(awsUserEmails, group.Members...)
 	}
 
-	log.Debug("preparing list of aws groups and their members")
+	var awsUsers []*aws.User
+	for _, awsUserEmail := range awsUserEmails {
+		awsUser, err := s.aws.FindUserByEmail(awsUserEmail)
+		if err != nil {
+			// todo - reconcile dynamodb and sso?
+			log.WithFields(log.Fields{"userEmail": awsUserEmail}).Error("error getting aws user from aws sso")
+			return err
+		}
+		awsUsers = append(awsUsers, awsUser)
+	}
+
 	awsGroupsUsers, err := s.getAWSGroupsAndUsers(awsGroups, awsUsers)
-	if err != nil {
-		return err
-	}
 
 	// create list of changes by operations
 	addAWSUsers, delAWSUsers, updateAWSUsers, _ := getUserOperations(awsUsers, googleUsers)
 	addAWSGroups, delAWSGroups, equalAWSGroups := getGroupOperations(awsGroups, googleGroups)
+
+	if s.cfg.DryRun {
+		log.Info("running in dry run mode. skipping apply.")
+		return nil
+	}
 
 	log.Info("syncing changes")
 	// delete aws users (deleted in google)
@@ -595,8 +410,10 @@ func getGroupOperations(awsGroups []*aws.Group, googleGroups []*admin.Group) (ad
 	// AWS Groups found and not found in google
 	for _, gGroup := range googleGroups {
 		if _, found := awsMap[gGroup.Name]; found {
+			log.WithFields(log.Fields{"group": gGroup.Name}).Debug("no changes to group")
 			equals = append(equals, awsMap[gGroup.Name])
 		} else {
+			log.WithFields(log.Fields{"group": gGroup.Name}).Debug("adding group")
 			add = append(add, aws.NewGroup(gGroup.Name))
 		}
 	}
@@ -604,6 +421,7 @@ func getGroupOperations(awsGroups []*aws.Group, googleGroups []*admin.Group) (ad
 	// Google Groups founds and not in aws
 	for _, awsGroup := range awsGroups {
 		if _, found := googleMap[awsGroup.DisplayName]; !found {
+			log.WithFields(log.Fields{"group": awsGroup.DisplayName}).Debug("deleting group")
 			delete = append(delete, aws.NewGroup(awsGroup.DisplayName))
 		}
 	}
@@ -625,24 +443,29 @@ func getUserOperations(awsUsers []*aws.User, googleUsers []*admin.User) (add []*
 		googleMap[gUser.PrimaryEmail] = struct{}{}
 	}
 
-	// AWS Users found and not found in google
 	for _, gUser := range googleUsers {
+		// Google Users found and found in AWS
 		if awsUser, found := awsMap[gUser.PrimaryEmail]; found {
 			if awsUser.Active == gUser.Suspended ||
 				awsUser.Name.GivenName != gUser.Name.GivenName ||
 				awsUser.Name.FamilyName != gUser.Name.FamilyName {
+				log.WithFields(log.Fields{"user": awsUser.Username}).Debug("updating user")
 				update = append(update, aws.NewUser(gUser.Name.GivenName, gUser.Name.FamilyName, gUser.PrimaryEmail, !gUser.Suspended))
 			} else {
+				log.WithFields(log.Fields{"user": awsUser.Username}).Debug("no changes to user")
 				equals = append(equals, awsUser)
 			}
 		} else {
+			// Google Users found and not found in AWS
+			log.WithFields(log.Fields{"user": gUser.PrimaryEmail}).Debug("adding user")
 			add = append(add, aws.NewUser(gUser.Name.GivenName, gUser.Name.FamilyName, gUser.PrimaryEmail, !gUser.Suspended))
 		}
 	}
 
-	// Google Users founds and not in aws
+	// AWS Users founds and not in Google
 	for _, awsUser := range awsUsers {
 		if _, found := googleMap[awsUser.Username]; !found {
+			log.WithFields(log.Fields{"user": awsUser.Username}).Debug("deleting user")
 			delete = append(delete, aws.NewUser(awsUser.Name.GivenName, awsUser.Name.FamilyName, awsUser.Username, awsUser.Active))
 		}
 	}
@@ -714,7 +537,7 @@ func DoSync(ctx context.Context, cfg *config.Config) error {
 
 	awsSCIMClient, err := aws.NewSCIMClient(
 		httpClient,
-		&aws.Config{
+		&aws.SCIMConfig{
 			Endpoint: cfg.SCIMEndpoint,
 			Token:    cfg.SCIMAccessToken,
 		})
@@ -722,24 +545,15 @@ func DoSync(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	c := New(cfg, awsSCIMClient, googleClient)
+	awsDynamoDBClient, err := aws.NewDynamoDBClient(&aws.DynamoDBConfig{
+		DynamoDBTable: cfg.DynamoDBTable,
+	})
 
-	log.WithField("sync_method", cfg.SyncMethod).Info("syncing")
-	if cfg.SyncMethod == config.DefaultSyncMethod {
-		err = c.SyncGroupsUsers(cfg.GroupMatch)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = c.SyncUsers(cfg.UserMatch)
-		if err != nil {
-			return err
-		}
+	c := New(cfg, awsSCIMClient, awsDynamoDBClient, googleClient)
 
-		err = c.SyncGroups(cfg.GroupMatch)
-		if err != nil {
-			return err
-		}
+	err = c.SyncGroupsUsers(cfg.GroupMatch)
+	if err != nil {
+		return err
 	}
 
 	return nil
