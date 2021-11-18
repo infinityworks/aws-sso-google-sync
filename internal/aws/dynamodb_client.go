@@ -16,11 +16,16 @@ type DynamoDBConfig struct {
 }
 
 type DynamoDBClient interface {
-	GetGroupsWithMembers() ([]*Group, error)
-	AddGroup(*Group) error
-	RemoveGroup(*Group) error
-	AddUserToGroup(*Group, *User) error
-	RemoveUserFromGroup(*Group, *User) error
+	CreateGroup(*Group) error
+	DeleteGroup(*Group) error
+	GetGroups() ([]*Group, error)
+	GetGroupMembers(*Group) ([]*User, error)
+	GetUsers() ([]*User, error)
+	AddUserToGroup(*User, *Group) error
+	RemoveUserFromGroup(*User, *Group) error
+	CreateUser(*User) error
+	UpdateUser(*User) error
+	DeleteUser(*User) error
 }
 
 type dynamoDBClient struct {
@@ -29,7 +34,6 @@ type dynamoDBClient struct {
 }
 
 func NewDynamoDBClient(config *DynamoDBConfig) DynamoDBClient {
-	// todo - check whether any of these functions can return an error
 	session := session.Must(session.NewSession())
 	client := dynamodb.New(session)
 
@@ -39,32 +43,7 @@ func NewDynamoDBClient(config *DynamoDBConfig) DynamoDBClient {
 	}
 }
 
-func (c *dynamoDBClient) GetGroupsWithMembers() ([]*Group, error) {
-
-	params := &dynamodb.ScanInput{
-		TableName: aws.String(c.config.DynamoDBTableGroups),
-	}
-
-	// todo - check whether scan is paginated
-	result, err := c.client.Scan(params)
-	if err != nil {
-		// todo - make errors better
-		log.Fatalf("Query API call failed: %s", err)
-		return nil, err
-	}
-
-	var groups []*Group
-	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &groups)
-	if err != nil {
-		// todo - make errors better
-		log.Fatalf("Unmarshaling dynamodb response failed: %s", err)
-		return nil, err
-	}
-
-	return groups, nil
-}
-
-func (c *dynamoDBClient) AddGroup(group *Group) error {
+func (c *dynamoDBClient) CreateGroup(group *Group) error {
 
 	members := []*dynamodb.AttributeValue{}
 	for _, member := range group.Members {
@@ -93,7 +72,7 @@ func (c *dynamoDBClient) AddGroup(group *Group) error {
 	return nil
 }
 
-func (c *dynamoDBClient) RemoveGroup(group *Group) error {
+func (c *dynamoDBClient) DeleteGroup(group *Group) error {
 
 	input := &dynamodb.DeleteItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
@@ -114,9 +93,80 @@ func (c *dynamoDBClient) RemoveGroup(group *Group) error {
 	return nil
 }
 
-func (c *dynamoDBClient) AddUserToGroup(group *Group, user *User) error {
+func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
+	params := &dynamodb.ScanInput{
+		TableName: aws.String(c.config.DynamoDBTableGroups),
+	}
 
-	listUser := dynamodb.AttributeValue{S: &user.Username}
+	// todo - check whether scan is paginated
+	result, err := c.client.Scan(params)
+	if err != nil {
+		// todo - make errors better
+		log.Fatalf("Query API call failed: %s", err)
+		return nil, err
+	}
+
+	groups := []*Group{}
+	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &groups)
+	if err != nil {
+		// todo - make errors better
+		log.Fatalf("Unmarshaling dynamodb response failed: %s", err)
+		return nil, err
+	}
+
+	return groups, nil
+}
+
+func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
+
+	input := &dynamodb.GetItemInput{
+		TableName: aws.String(c.config.DynamoDBTableGroups),
+		Key: map[string]*dynamodb.AttributeValue{
+			"displayName": {
+				S: aws.String(g.DisplayName),
+			},
+		},
+	}
+
+	result, err := c.client.GetItem(input)
+	group := Group{}
+	err = dynamodbattribute.UnmarshalMap(result.Item, &group)
+	if err != nil {
+		log.Fatalf("Got error calling GetItem: %s", err)
+	}
+
+	users := []*User{}
+
+	// todo - get users objects somehow
+	return users, nil
+}
+
+func (c *dynamoDBClient) GetUsers() ([]*User, error) {
+	params := &dynamodb.ScanInput{
+		TableName: aws.String(c.config.DynamoDBTableUsers),
+	}
+
+	// todo - check whether scan is paginated
+	result, err := c.client.Scan(params)
+	if err != nil {
+		// todo - make errors better
+		log.Fatalf("Query API call failed: %s", err)
+		return nil, err
+	}
+
+	users := []*User{}
+	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &users)
+	if err != nil {
+		// todo - make errors better
+		log.Fatalf("Unmarshaling dynamodb response failed: %s", err)
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func (c *dynamoDBClient) AddUserToGroup(u *User, g *Group) error {
+	listUser := dynamodb.AttributeValue{S: &u.Username}
 	addSet := (&dynamodb.AttributeValue{}).SetL([]*dynamodb.AttributeValue{
 		&listUser,
 	},
@@ -132,7 +182,7 @@ func (c *dynamoDBClient) AddUserToGroup(group *Group, user *User) error {
 	_, err = c.client.UpdateItem(&dynamodb.UpdateItemInput{
 		TableName: &c.config.DynamoDBTableGroups,
 		Key: map[string]*dynamodb.AttributeValue{
-			"displayName": {S: aws.String(group.DisplayName)},
+			"displayName": {S: aws.String(g.DisplayName)},
 		},
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
@@ -142,9 +192,9 @@ func (c *dynamoDBClient) AddUserToGroup(group *Group, user *User) error {
 	return err
 }
 
-func (c *dynamoDBClient) RemoveUserFromGroup(group *Group, user *User) error {
+func (c *dynamoDBClient) RemoveUserFromGroup(u *User, g *Group) error {
 
-	listUser := dynamodb.AttributeValue{S: &user.Username}
+	listUser := dynamodb.AttributeValue{S: &u.Username}
 	deleteSet := (&dynamodb.AttributeValue{}).SetL([]*dynamodb.AttributeValue{
 		&listUser,
 	},
@@ -160,7 +210,7 @@ func (c *dynamoDBClient) RemoveUserFromGroup(group *Group, user *User) error {
 	_, err = c.client.UpdateItem(&dynamodb.UpdateItemInput{
 		TableName: &c.config.DynamoDBTableGroups,
 		Key: map[string]*dynamodb.AttributeValue{
-			"displayName": {S: aws.String(group.DisplayName)},
+			"displayName": {S: aws.String(g.DisplayName)},
 		},
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
@@ -168,4 +218,16 @@ func (c *dynamoDBClient) RemoveUserFromGroup(group *Group, user *User) error {
 	})
 
 	return err
+}
+
+func (c *dynamoDBClient) CreateUser(u *User) error {
+	panic("not implemented")
+}
+
+func (c *dynamoDBClient) UpdateUser(u *User) error {
+	panic("not implemented")
+}
+
+func (c *dynamoDBClient) DeleteUser(u *User) error {
+	panic("not implemented")
 }

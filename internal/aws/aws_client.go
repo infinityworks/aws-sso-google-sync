@@ -18,87 +18,179 @@ type AWSClient interface {
 }
 
 type awsClient struct {
-	client         *Client
-	dynamoDBClient *DynamoDBClient
+	client         Client
+	dynamoDBClient DynamoDBClient
 }
 
 func NewAWSClient(c Client, d DynamoDBClient) (AWSClient, error) {
 	return &awsClient{
-		client:         &c,
-		dynamoDBClient: &d,
+		client:         c,
+		dynamoDBClient: d,
 	}, nil
 }
 
 // IsUserInGroup will determine if user (u) is in group (g)
 func (c *awsClient) IsUserInGroup(u *User, g *Group) (bool, error) {
-	panic("not implemented")
-}
-
-func (c *awsClient) groupChangeOperation(op OperationType, u *User, g *Group) error {
-	panic("not implemented")
+	return c.client.IsUserInGroup(u, g)
 }
 
 // AddUserToGroup will add the user specified to the group specified
 func (c *awsClient) AddUserToGroup(u *User, g *Group) error {
-	panic("not implemented")
+
+	err := c.client.AddUserToGroup(u, g)
+	if err != nil {
+		return err
+	}
+
+	err = c.dynamoDBClient.AddUserToGroup(u, g)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // RemoveUserFromGroup will remove the user specified from the group specified
 func (c *awsClient) RemoveUserFromGroup(u *User, g *Group) error {
-	panic("not implemented")
+	err := c.client.RemoveUserFromGroup(u, g)
+	if err != nil {
+		return err
+	}
+
+	err = c.dynamoDBClient.RemoveUserFromGroup(u, g)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // FindUserByEmail will find the user by the email address specified
 func (c *awsClient) FindUserByEmail(email string) (*User, error) {
-	panic("not implemented")
+	return c.client.FindUserByEmail(email)
 }
 
 // FindUserByID will find the user by the email address specified
 func (c *awsClient) FindUserByID(id string) (*User, error) {
-	panic("not implemented")
+	return c.client.FindUserByID(id)
 }
 
 // FindGroupByDisplayName will find the group by its displayname.
 func (c *awsClient) FindGroupByDisplayName(name string) (*Group, error) {
-	panic("not implemented")
+	return c.client.FindGroupByDisplayName(name)
 }
 
 // CreateUser will create the user specified
 func (c *awsClient) CreateUser(u *User) (*User, error) {
-	panic("not implemented")
+
+	newUser, err := c.client.CreateUser(u)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.dynamoDBClient.CreateUser(newUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return newUser, nil
 }
 
 // UpdateUser will update/replace the user specified
 func (c *awsClient) UpdateUser(u *User) (*User, error) {
-	panic("not implemented")
+
+	newUser, err := c.client.UpdateUser(u)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.dynamoDBClient.UpdateUser(newUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return newUser, nil
 }
 
 // DeleteUser will remove the current user from the directory
 func (c *awsClient) DeleteUser(u *User) error {
-	panic("not implemented")
+
+	err := c.client.DeleteUser(u)
+	if err != nil {
+		return err
+	}
+
+	err = c.dynamoDBClient.DeleteUser(u)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // CreateGroup will create a group given
 func (c *awsClient) CreateGroup(g *Group) (*Group, error) {
-	panic("not implemented")
+
+	newGroup, err := c.client.CreateGroup(g)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.dynamoDBClient.CreateGroup(newGroup)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return newGroup, nil
 }
 
 // DeleteGroup will delete the group specified
 func (c *awsClient) DeleteGroup(g *Group) error {
-	panic("not implemented")
+
+	err := c.client.DeleteGroup(g)
+	if err != nil {
+		return err
+	}
+
+	err = c.dynamoDBClient.DeleteGroup(g)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetGroups will return existing groups
 func (c *awsClient) GetGroups() ([]*Group, error) {
-	panic("not implemented")
+
+	groups, err := c.dynamoDBClient.GetGroups()
+	if err != nil {
+		return nil, err
+	}
+
+	return groups, nil
 }
 
 // GetGroupMembers will return existing groups
 func (c *awsClient) GetGroupMembers(g *Group) ([]*User, error) {
-	panic("not implemented")
+
+	groupMembers, err := c.dynamoDBClient.GetGroupMembers(g)
+	if err != nil {
+		return nil, err
+	}
+
+	return groupMembers, nil
 }
 
 // GetUsers will return existing users
 func (c *awsClient) GetUsers() ([]*User, error) {
-	panic("not implemented")
+
+	users, err := c.dynamoDBClient.GetUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
