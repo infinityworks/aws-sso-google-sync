@@ -151,10 +151,10 @@ Resources:
       SSESpecification:
         SSEEnabled: true
       AttributeDefinitions:
-        - AttributeName: Name
+        - AttributeName: displayName
           AttributeType: S
       KeySchema:
-        - AttributeName: Name
+        - AttributeName: displayName
           KeyType: HASH
 
   AWSGoogleCredentialsSecret:

@@ -149,6 +149,7 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 			log.Error("error deleting user")
 			return err
 		}
+
 	}
 
 	// update aws users (updated in google)
@@ -198,8 +199,14 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 			return err
 		}
 
+		err = s.awsDynamoDB.AddGroup(awsGroup)
+		if err != nil {
+			log.Error("adding group to dynamodb")
+			return err
+		}
 	}
 
+	// todo - fix?
 	newAwsGroups, err := s.aws.GetGroups()
 	if err != nil {
 		return err
@@ -226,6 +233,11 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 			if err != nil {
 				return err
 			}
+			err = s.awsDynamoDB.AddUserToGroup(newAwsGroup, awsUserFull)
+			if err != nil {
+				log.WithField("user", awsUserFull.Username).Error("adding user to group in dynamodb")
+				return err
+			}
 		}
 	}
 
@@ -235,6 +247,10 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 	// validate groups members are equal in aws and google
 	log.Debug("validating groups members, equals in aws and google")
 	for _, awsGroup := range equalAWSGroups {
+		awsGroupFull, err := s.aws.FindGroupByDisplayName(awsGroup.DisplayName)
+		if err != nil {
+			return err
+		}
 
 		// add members of the new group
 		log := log.WithFields(log.Fields{"group": awsGroup.DisplayName})
@@ -248,14 +264,18 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 			}
 
 			log.WithField("user", awsUserFull.Username).Debug("checking user is in group already")
-			b, err := s.aws.IsUserInGroup(awsUserFull, awsGroup)
+			b, err := s.aws.IsUserInGroup(awsUserFull, awsGroupFull)
 			if err != nil {
 				return err
 			}
 
 			if !b {
 				log.WithField("user", awsUserFull.Username).Info("adding user to group")
-				err := s.aws.AddUserToGroup(awsUserFull, awsGroup)
+				err := s.aws.AddUserToGroup(awsUserFull, awsGroupFull)
+				if err != nil {
+					return err
+				}
+				err = s.awsDynamoDB.AddUserToGroup(awsGroupFull, awsUserFull)
 				if err != nil {
 					return err
 				}
@@ -265,6 +285,10 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 		for _, awsUser := range deleteUsersFromGroup[awsGroup.DisplayName] {
 			log.WithField("user", awsUser.Username).Warn("removing user from group")
 			err := s.aws.RemoveUserFromGroup(awsUser, awsGroup)
+			if err != nil {
+				return err
+			}
+			err = s.awsDynamoDB.RemoveUserFromGroup(awsGroup, awsUser)
 			if err != nil {
 				return err
 			}
@@ -289,6 +313,11 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 			log.Error("deleting group")
 			return err
 		}
+		err = s.awsDynamoDB.RemoveGroup(awsGroupFull)
+		if err != nil {
+			log.Error("deleting group from dynamodb")
+			return err
+		}
 	}
 
 	log.Info("sync completed")
@@ -306,7 +335,7 @@ func (s *syncGSuite) getGoogleGroupsAndUsers(googleGroups []*admin.Group) ([]*ad
 
 	for _, g := range googleGroups {
 
-		log := log.WithFields(log.Fields{"group": g.Name})
+		log := log.WithFields(log.Fields{"group": g.Name, "email": g.Email})
 
 		if s.ignoreGroup(g.Email) {
 			log.Debug("ignoring group")
