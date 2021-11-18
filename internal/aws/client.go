@@ -101,7 +101,7 @@ func (c *client) sendRequestWithBody(method string, url string, body interface{}
 		return
 	}
 
-	log.WithFields(log.Fields{"url": url, "method": method})
+	log.WithFields(log.Fields{"url": url, "method": method}).Debug("sending request to scim endpoint")
 
 	// Set the content-type and authorization headers
 	r.Header.Set("Content-Type", "application/scim+json")

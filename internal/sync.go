@@ -46,7 +46,7 @@ type syncGSuite struct {
 }
 
 // New will create a new SyncGSuite object
-func New(cfg *config.Config, a aws.Client, g google.Client) SyncGSuite {
+func New(cfg *config.Config, a aws.AWSClient, g google.Client) SyncGSuite {
 	return &syncGSuite{
 		aws:    a,
 		google: g,
@@ -722,7 +722,17 @@ func DoSync(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	c := New(cfg, awsClient, googleClient)
+	awsDynamoDBClient := aws.NewDynamoDBClient(&aws.DynamoDBConfig{
+		DynamoDBTableUsers:  cfg.DynamoDBTableUsers,
+		DynamoDBTableGroups: cfg.DynamoDBTableGroups,
+	})
+
+	awsWrapperClient, err := aws.NewAWSClient(awsClient, awsDynamoDBClient)
+	if err != nil {
+		return err
+	}
+
+	c := New(cfg, awsWrapperClient, googleClient)
 
 	log.WithField("sync_method", cfg.SyncMethod).Info("syncing")
 	if cfg.SyncMethod == config.DefaultSyncMethod {

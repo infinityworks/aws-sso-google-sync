@@ -114,21 +114,23 @@ Usage:
   ssosync [flags]
 
 Flags:
-  -t, --access-token string         AWS SSO SCIM API Access Token
-  -d, --debug                       enable verbose / debug logging
-  -e, --endpoint string             AWS SSO SCIM API Endpoint
-  -u, --google-admin string         Google Workspace admin user email
-  -c, --google-credentials string   path to Google Workspace credentials file (default "credentials.json")
-  -g, --group-match string          Google Workspace Groups filter query parameter, example: 'name:Admin* email:aws-*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-groups
-  -h, --help                        help for ssosync
-      --ignore-groups strings       ignores these Google Workspace groups
-      --ignore-users strings        ignores these Google Workspace users
-      --include-groups strings      include only these Google Workspace groups, NOTE: only works when --sync-method 'users_groups'
-      --log-format string           log format (default "text")
-      --log-level string            log level (default "info")
-  -s, --sync-method string          Sync method to use (users_groups|groups) (default "groups")
-  -m, --user-match string           Google Workspace Users filter query parameter, example: 'name:John* email:admin*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-users
-  -v, --version                     version for ssosync
+  -t, --access-token string               AWS SSO SCIM API Access Token
+  -d, --debug                             enable verbose / debug logging
+  -e, --endpoint string                   AWS SSO SCIM API Endpoint
+      --dynamodb-table-users string       DynamoDB Table name for AWS SSO user storage
+      --dynamodb-table-groups string      DynamoDB Table name for AWS SSO group and group membership storage
+  -u, --google-admin string               Google Workspace admin user email
+  -c, --google-credentials string         path to Google Workspace credentials file (default "credentials.json")
+  -g, --group-match string                Google Workspace Groups filter query parameter, example: 'name:Admin* email:aws-*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-groups
+  -h, --help                              help for ssosync
+      --ignore-groups strings             ignores these Google Workspace groups
+      --ignore-users strings              ignores these Google Workspace users
+      --include-groups strings            include only these Google Workspace groups, NOTE: only works when --sync-method 'users_groups'
+      --log-format string                 log format (default "text")
+      --log-level string                  log level (default "info")
+  -s, --sync-method string                Sync method to use (users_groups|groups) (default "groups")
+  -m, --user-match string                 Google Workspace Users filter query parameter, example: 'name:John* email:admin*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-users
+  -v, --version                           version for ssosync
 ```
 
 The function has `two behaviour` and these are controlled by the `--sync-method` flag, this behavior could be

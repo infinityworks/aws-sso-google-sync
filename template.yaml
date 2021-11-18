@@ -106,6 +106,14 @@ Parameters:
     AllowedValues:
       - groups
       - users_groups
+  DynamoDBUsersTableName:
+    Type: String
+    Description: Name of DynamoDB table to store AWS SSO groups and user membership
+    Default: aws-sso-google-sync-users
+  DynamoDBGroupsTableName:
+    Type: String
+    Description: Name of DynamoDB table to store AWS SSO groups and user membership
+    Default: aws-sso-google-sync-groups
 
 Resources:
   SSOSyncFunction:
@@ -128,6 +136,8 @@ Resources:
           SSOSYNC_IGNORE_GROUPS: !Ref IgnoreGroups
           SSOSYNC_IGNORE_USERS: !Ref IgnoreUsers
           SSOSYNC_INCLUDE_GROUPS: !Ref IncludeGroups
+          SSOSYNC_DYNAMODB_TABLE_USERS: !Ref DynamoDBUsersTableName
+          SSOSYNC_DYNAMODB_TABLE_GROUPS: !Ref DynamoDBGroupsTableName
       Policies:
         - Statement:
             - Sid: SSMGetParameterPolicy
@@ -146,6 +156,34 @@ Resources:
           Properties:
             Enabled: true
             Schedule: !Ref ScheduleExpression
+
+  UsersDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDBUsersTableName
+      BillingMode: "PAY_PER_REQUEST"
+      SSESpecification:
+        SSEEnabled: true
+      AttributeDefinitions:
+        - AttributeName: username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: username
+          KeyType: HASH
+
+  GroupsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDBGroupsTableName
+      BillingMode: "PAY_PER_REQUEST"
+      SSESpecification:
+        SSEEnabled: true
+      AttributeDefinitions:
+        - AttributeName: displayName
+          AttributeType: S
+      KeySchema:
+        - AttributeName: displayName
+          KeyType: HASH
 
   AWSGoogleCredentialsSecret:
     Type: "AWS::SecretsManager::Secret"

@@ -109,6 +109,8 @@ func initConfig() {
 		"user_match",
 		"group_match",
 		"sync_method",
+		"dynamodb_table_users",
+		"dynamodb_table_groups",
 	}
 
 	for _, e := range appEnvVars {
@@ -160,7 +162,6 @@ func configLambda() {
 }
 
 func addFlags(cmd *cobra.Command, cfg *config.Config) {
-	rootCmd.PersistentFlags().StringVarP(&cfg.GoogleCredentials, "google-admin", "a", config.DefaultGoogleCredentials, "path to find credentials file for Google Workspace")
 	rootCmd.PersistentFlags().BoolVarP(&cfg.Debug, "debug", "d", config.DefaultDebug, "enable verbose / debug logging")
 	rootCmd.PersistentFlags().StringVarP(&cfg.LogFormat, "log-format", "", config.DefaultLogFormat, "log format")
 	rootCmd.PersistentFlags().StringVarP(&cfg.LogLevel, "log-level", "", config.DefaultLogLevel, "log level")
@@ -174,6 +175,8 @@ func addFlags(cmd *cobra.Command, cfg *config.Config) {
 	rootCmd.Flags().StringVarP(&cfg.UserMatch, "user-match", "m", "", "Google Workspace Users filter query parameter, example: 'name:John* email:admin*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-users")
 	rootCmd.Flags().StringVarP(&cfg.GroupMatch, "group-match", "g", "", "Google Workspace Groups filter query parameter, example: 'name:Admin* email:aws-*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-groups")
 	rootCmd.Flags().StringVarP(&cfg.SyncMethod, "sync-method", "s", config.DefaultSyncMethod, "Sync method to use (users_groups|groups)")
+	rootCmd.Flags().StringVarP(&cfg.DynamoDBTableUsers, "dynamodb-table-users", "", "sso-sync-henry-tmp-users", "DynamoDB table for user storage")
+	rootCmd.Flags().StringVarP(&cfg.DynamoDBTableGroups, "dynamodb-table-groups", "", "sso-sync-henry-tmp-groups", "DynamoDB table for group and group member storage")
 }
 
 func logConfig(cfg *config.Config) {
