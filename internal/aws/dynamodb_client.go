@@ -138,7 +138,13 @@ func (c *dynamoDBClient) AddUserToGroup(group *Group, user *User) error {
 }
 
 func (c *dynamoDBClient) RemoveUserFromGroup(group *Group, user *User) error {
-	deleteSet := (&dynamodb.AttributeValue{}).SetSS(aws.StringSlice([]string{user.Username}))
+
+	listUser := dynamodb.AttributeValue{S: &user.Username}
+	deleteSet := (&dynamodb.AttributeValue{}).SetL([]*dynamodb.AttributeValue{
+		&listUser,
+	},
+	)
+
 	update := expression.Delete(expression.Name("members"), expression.Value(deleteSet))
 	expr, err := expression.NewBuilder().WithUpdate(update).Build()
 
