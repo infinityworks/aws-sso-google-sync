@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/awslabs/ssosync/internal/aws"
+	"github.com/infinityworks/aws-sso-google-sync/internal/aws"
 	admin "google.golang.org/api/admin/directory/v1"
 )
 

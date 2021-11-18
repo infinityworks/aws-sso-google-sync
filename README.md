@@ -1,8 +1,8 @@
 # SSO Sync
 
-![Github Action](https://github.com/awslabs/ssosync/workflows/main/badge.svg)
+![Github Action](https://github.com/infinityworks/aws-sso-google-sync/workflows/main/badge.svg)
 <a href='https://github.com/jpoles1/gopherbadger' target='_blank'>![gopherbadger-tag-do-not-edit](https://img.shields.io/badge/Go%20Coverage-42%25-brightgreen.svg?longCache=true&style=flat)</a>
-[![Go Report Card](https://goreportcard.com/badge/github.com/awslabs/ssosync)](https://goreportcard.com/report/github.com/awslabs/ssosync)
+[![Go Report Card](https://goreportcard.com/badge/github.com/infinityworks/aws-sso-google-sync)](https://goreportcard.com/report/github.com/infinityworks/aws-sso-google-sync)
 [![License Apache 2](https://img.shields.io/badge/License-Apache2-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Taylor Swift](https://img.shields.io/badge/secured%20by-taylor%20swift-brightgreen.svg)](https://twitter.com/SwiftOnSecurity)
 
@@ -46,7 +46,7 @@ what it is going to do.
 
 ## Installation
 
-You can `go get github.com/awslabs/ssosync` or grab a Release binary from the release page. The binary
+You can `go get github.com/infinityworks/aws-sso-google-sync` or grab a Release binary from the release page. The binary
 can be used from your local computer, or you can deploy to AWS Lambda to run on a CloudWatch Event
 for regular synchronization.
 
@@ -96,7 +96,7 @@ SSOSYNC_SCIM_ENDPOINT=<YOUR_ENDPOINT>
 ## Local Usage
 
 ```bash
-git clone https://github.com/awslabs/ssosync.git
+git clone https://github.com/infinityworks/aws-sso-google-sync.git
 cd ssosync/
 make go-build
 ```
@@ -108,7 +108,7 @@ make go-build
 ```bash
 A command line tool to enable you to synchronise your Google
 Apps (Google Workspace) users to AWS Single Sign-on (AWS SSO)
-Complete documentation is available at https://github.com/awslabs/ssosync
+Complete documentation is available at https://github.com/infinityworks/aws-sso-google-sync
 
 Usage:
   ssosync [flags]
