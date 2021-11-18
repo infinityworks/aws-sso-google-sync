@@ -5,15 +5,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type DynamoDBClient interface {
-	AddGroup(*Group) error
-	AddUserToGroup(*Group, *User) error
-	DeleteUserFromGroup(*Group, *User) error
 	GetGroupsWithMembers() ([]*Group, error)
+	AddGroup(*Group) error
+	RemoveGroup(*Group) error
+	AddUserToGroup(*Group, *User) error
+	RemoveUserFromGroup(*Group, *User) error
 }
 
 type dynamoDBClient struct {
@@ -58,13 +60,90 @@ func (c *dynamoDBClient) GetGroupsWithMembers() ([]*Group, error) {
 }
 
 func (c *dynamoDBClient) AddGroup(group *Group) error {
+
+	item, err := dynamodbattribute.MarshalMap(group)
+	if err != nil {
+		log.Error("error marshalling new group: %s", err)
+		return err
+	}
+
+	input := &dynamodb.PutItemInput{
+		Item:      item,
+		TableName: aws.String(c.config.DynamoDBTable),
+	}
+
+	_, err = c.client.PutItem(input)
+	if err != nil {
+		log.Error("error calling dynamodb PutItem: %s", err)
+		return err
+	}
+
+	log.Debug("added group to dynamodb: %s", group.DisplayName)
+	return nil
+}
+
+func (c *dynamoDBClient) RemoveGroup(group *Group) error {
+
+	input := &dynamodb.DeleteItemInput{
+		Key: map[string]*dynamodb.AttributeValue{
+			"DisplayName": {
+				S: aws.String(group.DisplayName),
+			},
+		},
+		TableName: aws.String(c.config.DynamoDBTable),
+	}
+
+	_, err := c.client.DeleteItem(input)
+	if err != nil {
+		log.Error("error calling dynamodb DeleteItem: %s", err)
+		return err
+	}
+
+	log.Debug("deleted group from dynamodb: %s", group.DisplayName)
 	return nil
 }
 
 func (c *dynamoDBClient) AddUserToGroup(group *Group, user *User) error {
-	return nil
+
+	addSet := (&dynamodb.AttributeValue{}).SetSS(aws.StringSlice([]string{user.Username}))
+	update := expression.Add(expression.Name("Members"), expression.Value(addSet))
+	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateItem(&dynamodb.UpdateItemInput{
+		TableName: &c.config.DynamoDBTable,
+		Key: map[string]*dynamodb.AttributeValue{
+			"DisplayName": {S: aws.String(group.DisplayName)},
+		},
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		UpdateExpression:          expr.Update(),
+	})
+
+	return err
 }
 
-func (c *dynamoDBClient) DeleteUserFromGroup(group *Group, user *User) error {
-	return nil
+func (c *dynamoDBClient) RemoveUserFromGroup(group *Group, user *User) error {
+	deleteSet := (&dynamodb.AttributeValue{}).SetSS(aws.StringSlice([]string{user.Username}))
+	update := expression.Delete(expression.Name("groups"), expression.Value(deleteSet))
+	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateItem(&dynamodb.UpdateItemInput{
+		TableName: &c.config.DynamoDBTable,
+		Key: map[string]*dynamodb.AttributeValue{
+			"DisplayName": {S: aws.String(group.DisplayName)},
+		},
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		UpdateExpression:          expr.Update(),
+	})
+
+	return err
 }
