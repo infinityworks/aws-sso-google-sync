@@ -37,18 +37,17 @@ func (c *awsClient) IsUserInGroup(u *User, g *Group) (bool, error) {
 // AddUserToGroup will add the user specified to the group specified
 func (c *awsClient) AddUserToGroup(u *User, g *Group) error {
 
-	err := c.client.AddUserToGroup(u, g)
-	if err != nil {
-		return err
-	}
-
 	isUserInDynamoDBGroup, err := c.dynamoDBClient.IsUserInGroup(u, g)
-
 	if !isUserInDynamoDBGroup {
 		err = c.dynamoDBClient.AddUserToGroup(u, g)
 		if err != nil {
 			return err
 		}
+	}
+
+	err = c.client.AddUserToGroup(u, g)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -136,12 +135,6 @@ func (c *awsClient) CreateGroup(g *Group) (*Group, error) {
 		return nil, err
 	}
 
-	err = c.dynamoDBClient.CreateGroup(newGroup)
-
-	if err != nil {
-		return nil, err
-	}
-
 	return newGroup, nil
 }
 
@@ -153,9 +146,17 @@ func (c *awsClient) DeleteGroup(g *Group) error {
 		return err
 	}
 
-	err = c.dynamoDBClient.DeleteGroup(g)
+	dynamoDBGroupMembers, err := c.dynamoDBClient.GetGroupMembers(g)
 	if err != nil {
 		return err
+	}
+
+	for _, member := range dynamoDBGroupMembers {
+		err = c.dynamoDBClient.RemoveUserFromGroup(member, g)
+		if err != nil {
+			return err
+		}
+
 	}
 
 	return nil
@@ -169,7 +170,17 @@ func (c *awsClient) GetGroups() ([]*Group, error) {
 		return nil, err
 	}
 
-	return groups, nil
+	awsGroups := []*Group{}
+	for _, group := range groups {
+		awsGroup, err := c.client.FindGroupByDisplayName(group.DisplayName)
+		if err != nil {
+			return nil, err
+		}
+
+		awsGroups = append(awsGroups, awsGroup)
+	}
+
+	return awsGroups, nil
 }
 
 // GetGroupMembers will return existing groups

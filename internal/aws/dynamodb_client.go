@@ -1,11 +1,12 @@
 package aws
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -15,9 +16,12 @@ type DynamoDBConfig struct {
 	DynamoDBTableGroups string
 }
 
+type DynamoDBGroupUser struct {
+	GroupName string `json:"groupName"`
+	Username  string `json:"username"`
+}
+
 type DynamoDBClient interface {
-	CreateGroup(*Group) error
-	DeleteGroup(*Group) error
 	GetGroups() ([]*Group, error)
 	GetGroupMembers(*Group) ([]*User, error)
 	GetUsers() ([]*User, error)
@@ -43,57 +47,6 @@ func NewDynamoDBClient(config *DynamoDBConfig) DynamoDBClient {
 	}
 }
 
-func (c *dynamoDBClient) CreateGroup(group *Group) error {
-
-	members := []*dynamodb.AttributeValue{}
-	for _, member := range group.Members {
-		members = append(members, &dynamodb.AttributeValue{
-			S: aws.String(member),
-		})
-	}
-	item := map[string]*dynamodb.AttributeValue{
-		"id":          {S: aws.String(group.ID)},
-		"displayName": {S: aws.String(group.DisplayName)},
-		"members":     {L: members},
-		"schema":      {SS: aws.StringSlice(group.Schemas)},
-	}
-
-	input := &dynamodb.PutItemInput{
-		Item:      item,
-		TableName: aws.String(c.config.DynamoDBTableGroups),
-	}
-
-	_, err := c.client.PutItem(input)
-	if err != nil {
-		log.Error("error calling dynamodb PutItem: %s", err)
-		return err
-	}
-
-	log.Debug("added group to dynamodb: %s", group.DisplayName)
-	return nil
-}
-
-func (c *dynamoDBClient) DeleteGroup(group *Group) error {
-
-	input := &dynamodb.DeleteItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"displayName": {
-				S: aws.String(group.DisplayName),
-			},
-		},
-		TableName: aws.String(c.config.DynamoDBTableGroups),
-	}
-
-	_, err := c.client.DeleteItem(input)
-	if err != nil {
-		log.Error("error calling dynamodb DeleteItem: %s", err)
-		return err
-	}
-
-	log.Debug("deleted group from dynamodb: %s", group.DisplayName)
-	return nil
-}
-
 func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
 	params := &dynamodb.ScanInput{
 		TableName: aws.String(c.config.DynamoDBTableGroups),
@@ -107,41 +60,59 @@ func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
 		return nil, err
 	}
 
-	groups := []*Group{}
-	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &groups)
+	groupUsers := []*DynamoDBGroupUser{}
+	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &groupUsers)
 	if err != nil {
 		// todo - make errors better
 		log.Fatalf("Unmarshaling dynamodb response failed: %s", err)
 		return nil, err
 	}
 
+	groupNames := map[string]struct{}{}
+	for _, groupUser := range groupUsers {
+		if _, ok := groupNames[groupUser.GroupName]; !ok {
+			groupNames[groupUser.GroupName] = struct{}{}
+		}
+	}
+
+	groups := []*Group{}
+	for groupName, _ := range groupNames {
+		groups = append(groups, &Group{
+			DisplayName: groupName,
+		})
+	}
 	return groups, nil
 }
 
 func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
-
-	input := &dynamodb.GetItemInput{
+	params := &dynamodb.ScanInput{
 		TableName: aws.String(c.config.DynamoDBTableGroups),
-		Key: map[string]*dynamodb.AttributeValue{
-			"displayName": {
-				S: aws.String(g.DisplayName),
-			},
-		},
 	}
 
-	result, err := c.client.GetItem(input)
-	group := Group{}
-	err = dynamodbattribute.UnmarshalMap(result.Item, &group)
+	// todo - check whether scan is paginated
+	result, err := c.client.Scan(params)
 	if err != nil {
-		log.Fatalf("Got error calling GetItem: %s", err)
+		// todo - make errors better
+		log.Fatalf("Query API call failed: %s", err)
+		return nil, err
+	}
+
+	groupUsers := []*DynamoDBGroupUser{}
+	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &groupUsers)
+	if err != nil {
+		// todo - make errors better
+		log.Fatalf("Unmarshaling dynamodb response failed: %s", err)
+		return nil, err
 	}
 
 	users := []*User{}
-	for _, groupMember := range group.Members {
+	for _, groupUser := range groupUsers {
 		users = append(users, &User{
-			Username: groupMember,
+			Username: groupUser.Username,
 		})
 	}
+
+	fmt.Println(users)
 
 	return users, nil
 }
@@ -171,58 +142,47 @@ func (c *dynamoDBClient) GetUsers() ([]*User, error) {
 }
 
 func (c *dynamoDBClient) AddUserToGroup(u *User, g *Group) error {
-	listUser := dynamodb.AttributeValue{S: &u.Username}
-	addSet := (&dynamodb.AttributeValue{}).SetL([]*dynamodb.AttributeValue{
-		&listUser,
-	},
-	)
+	item := map[string]*dynamodb.AttributeValue{
+		"groupName": {S: aws.String(g.DisplayName)},
+		"username":  {S: aws.String(u.Username)},
+	}
 
-	update := expression.Set(expression.Name("members"), expression.Name("members").ListAppend(expression.Value(addSet)))
-	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+	input := &dynamodb.PutItemInput{
+		Item:      item,
+		TableName: aws.String(c.config.DynamoDBTableGroups),
+	}
 
+	_, err := c.client.PutItem(input)
 	if err != nil {
+		log.Error("error calling dynamodb PutItem: %s", err)
 		return err
 	}
 
-	_, err = c.client.UpdateItem(&dynamodb.UpdateItemInput{
-		TableName: &c.config.DynamoDBTableGroups,
-		Key: map[string]*dynamodb.AttributeValue{
-			"displayName": {S: aws.String(g.DisplayName)},
-		},
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		UpdateExpression:          expr.Update(),
-	})
-
-	return err
+	log.Debug("added user to group in dynamodb: %s", g.DisplayName, u.Username)
+	return nil
 }
 
 func (c *dynamoDBClient) RemoveUserFromGroup(u *User, g *Group) error {
+	input := &dynamodb.DeleteItemInput{
+		Key: map[string]*dynamodb.AttributeValue{
+			"groupName": {
+				S: aws.String(g.DisplayName),
+			},
+			"username": {
+				S: aws.String(u.Username),
+			},
+		},
+		TableName: aws.String(c.config.DynamoDBTableGroups),
+	}
 
-	listUser := dynamodb.AttributeValue{S: &u.Username}
-	deleteSet := (&dynamodb.AttributeValue{}).SetL([]*dynamodb.AttributeValue{
-		&listUser,
-	},
-	)
-
-	update := expression.Delete(expression.Name("members"), expression.Value(deleteSet))
-	expr, err := expression.NewBuilder().WithUpdate(update).Build()
-
+	_, err := c.client.DeleteItem(input)
 	if err != nil {
+		log.Error("error calling dynamodb DeleteItem: %s", err)
 		return err
 	}
 
-	_, err = c.client.UpdateItem(&dynamodb.UpdateItemInput{
-		TableName: &c.config.DynamoDBTableGroups,
-		Key: map[string]*dynamodb.AttributeValue{
-			"displayName": {S: aws.String(g.DisplayName)},
-		},
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		UpdateExpression:          expr.Update(),
-	})
-
-	return err
+	log.Debug("deleted user from group in dynamodb: ", g.DisplayName, u.Username)
+	return nil
 }
 
 func (c *dynamoDBClient) CreateUser(u *User) error {

@@ -179,11 +179,15 @@ Resources:
       SSESpecification:
         SSEEnabled: true
       AttributeDefinitions:
-        - AttributeName: displayName
+        - AttributeName: groupName
+          AttributeType: S
+        - AttributeName: username
           AttributeType: S
       KeySchema:
-        - AttributeName: displayName
+        - AttributeName: groupName
           KeyType: HASH
+        - AttributeName: username
+          KeyType: RANGE
 
   AWSGoogleCredentialsSecret:
     Type: "AWS::SecretsManager::Secret"
