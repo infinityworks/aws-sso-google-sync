@@ -372,32 +372,30 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 
 	// add aws groups (added in google)
 	log.Debug("creating aws groups added in google")
+	newAwsGroups := []*aws.Group{}
 	for _, awsGroup := range addAWSGroups {
 
 		log := log.WithFields(log.Fields{"group": awsGroup.DisplayName})
 
 		log.Info("creating group")
-		_, err := s.aws.CreateGroup(awsGroup)
+		newAwsGroup, err := s.aws.CreateGroup(awsGroup)
 		if err != nil {
 			log.Error("creating group")
 			return err
 		}
-
+		newAwsGroups = append(newAwsGroups, newAwsGroup)
 	}
 
-	allAwsGroups, err := s.aws.GetGroups()
-	if err != nil {
-		return err
-	}
+	allAwsGroups := append(awsGroups, newAwsGroups...)
 
-	for _, newAwsGroup := range allAwsGroups {
-		if _, ok := googleGroupsUsers[newAwsGroup.DisplayName]; !ok {
+	for _, awsGroup := range allAwsGroups {
+		if _, ok := googleGroupsUsers[awsGroup.DisplayName]; !ok {
 			log.Debug("aws group not present in google group. skipping...")
 			continue
 		}
 
 		// add members of the new group
-		for _, googleUser := range googleGroupsUsers[newAwsGroup.DisplayName] {
+		for _, googleUser := range googleGroupsUsers[awsGroup.DisplayName] {
 
 			// equivalent aws user of google user on the fly
 			log.Debug("finding user")
@@ -407,7 +405,7 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 			}
 
 			log.WithField("user", awsUserFull.Username).Info("adding user to group")
-			err = s.aws.AddUserToGroup(awsUserFull, newAwsGroup)
+			err = s.aws.AddUserToGroup(awsUserFull, awsGroup)
 			if err != nil {
 				return err
 			}
