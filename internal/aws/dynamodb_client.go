@@ -24,8 +24,8 @@ type DynamoDBClient interface {
 	AddUserToGroup(*User, *Group) error
 	RemoveUserFromGroup(*User, *Group) error
 	CreateUser(*User) error
-	UpdateUser(*User) error
 	DeleteUser(*User) error
+	IsUserInGroup(*User, *Group) (bool, error)
 }
 
 type dynamoDBClient struct {
@@ -52,6 +52,7 @@ func (c *dynamoDBClient) CreateGroup(group *Group) error {
 		})
 	}
 	item := map[string]*dynamodb.AttributeValue{
+		"id":          {S: aws.String(group.ID)},
 		"displayName": {S: aws.String(group.DisplayName)},
 		"members":     {L: members},
 		"schema":      {SS: aws.StringSlice(group.Schemas)},
@@ -136,8 +137,12 @@ func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
 	}
 
 	users := []*User{}
+	for _, groupMember := range group.Members {
+		users = append(users, &User{
+			Username: groupMember,
+		})
+	}
 
-	// todo - get users objects somehow
 	return users, nil
 }
 
@@ -221,13 +226,58 @@ func (c *dynamoDBClient) RemoveUserFromGroup(u *User, g *Group) error {
 }
 
 func (c *dynamoDBClient) CreateUser(u *User) error {
-	panic("not implemented")
-}
+	item := map[string]*dynamodb.AttributeValue{
+		"username": {S: aws.String(u.Username)},
+	}
 
-func (c *dynamoDBClient) UpdateUser(u *User) error {
-	panic("not implemented")
+	input := &dynamodb.PutItemInput{
+		Item:      item,
+		TableName: aws.String(c.config.DynamoDBTableUsers),
+	}
+
+	_, err := c.client.PutItem(input)
+	if err != nil {
+		log.Error("error calling dynamodb PutItem: %s", err)
+		return err
+	}
+
+	log.Debug("added user to dynamodb: %s", u.Username)
+	return nil
 }
 
 func (c *dynamoDBClient) DeleteUser(u *User) error {
-	panic("not implemented")
+	input := &dynamodb.DeleteItemInput{
+		Key: map[string]*dynamodb.AttributeValue{
+			"username": {
+				S: aws.String(u.Username),
+			},
+		},
+		TableName: aws.String(c.config.DynamoDBTableUsers),
+	}
+
+	_, err := c.client.DeleteItem(input)
+	if err != nil {
+		log.Error("error calling dynamodb DeleteItem: %s", err)
+		return err
+	}
+
+	log.Debug("deleted user from dynamodb: %s", u.Username)
+	return nil
+}
+
+func (c *dynamoDBClient) IsUserInGroup(u *User, g *Group) (bool, error) {
+
+	groupMembers, err := c.GetGroupMembers(g)
+	if err != nil {
+		return false, err
+	}
+
+	for _, groupMember := range groupMembers {
+		if u.Username == groupMember.Username {
+			return true, nil
+		}
+	}
+
+	return false, nil
+
 }

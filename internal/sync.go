@@ -385,12 +385,12 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 
 	}
 
-	newAwsGroups, err := s.aws.GetGroups()
+	allAwsGroups, err := s.aws.GetGroups()
 	if err != nil {
 		return err
 	}
 
-	for _, newAwsGroup := range newAwsGroups {
+	for _, newAwsGroup := range allAwsGroups {
 		if _, ok := googleGroupsUsers[newAwsGroup.DisplayName]; !ok {
 			log.Debug("aws group not present in google group. skipping...")
 			continue
@@ -556,14 +556,13 @@ func (s *syncGSuite) getAWSGroupsAndUsers(awsGroups []*aws.Group, awsUsers []*aw
 	for _, awsGroup := range awsGroups {
 
 		users := make([]*aws.User, 0)
-		log := log.WithFields(log.Fields{"group": awsGroup.DisplayName})
 
-		log.Debug("get group members from aws")
+		log.WithFields(log.Fields{"group": awsGroup.DisplayName}).Debug("get group members from aws")
 		// NOTE: AWS has not implemented yet some method to get the groups members https://docs.aws.amazon.com/singlesignon/latest/developerguide/listgroups.html
 		// so, we need to check each user in each group which are too many unnecessary API calls
 		for _, user := range awsUsers {
 
-			log.Debug("checking if user is member of")
+			log.WithFields(log.Fields{"group": awsGroup.DisplayName, "user": user.Username}).Debug("checking if user is member of")
 			found, err := s.aws.IsUserInGroup(user, awsGroup)
 			if err != nil {
 				return nil, err
@@ -592,7 +591,7 @@ func getGroupOperations(awsGroups []*aws.Group, googleGroups []*admin.Group) (ad
 		googleMap[gGroup.Name] = struct{}{}
 	}
 
-	// AWS Groups found and not found in google
+	// Google Groups not found or already exist in AWS
 	for _, gGroup := range googleGroups {
 		if _, found := awsMap[gGroup.Name]; found {
 			equals = append(equals, awsMap[gGroup.Name])
@@ -601,7 +600,7 @@ func getGroupOperations(awsGroups []*aws.Group, googleGroups []*admin.Group) (ad
 		}
 	}
 
-	// Google Groups founds and not in aws
+	// AWS Groups founds and not in Google
 	for _, awsGroup := range awsGroups {
 		if _, found := googleMap[awsGroup.DisplayName]; !found {
 			delete = append(delete, aws.NewGroup(awsGroup.DisplayName))
@@ -625,7 +624,7 @@ func getUserOperations(awsUsers []*aws.User, googleUsers []*admin.User) (add []*
 		googleMap[gUser.PrimaryEmail] = struct{}{}
 	}
 
-	// AWS Users found and not found in google
+	// Google Users not found, require update, or already exist in AWS
 	for _, gUser := range googleUsers {
 		if awsUser, found := awsMap[gUser.PrimaryEmail]; found {
 			if awsUser.Active == gUser.Suspended ||
@@ -640,7 +639,7 @@ func getUserOperations(awsUsers []*aws.User, googleUsers []*admin.User) (add []*
 		}
 	}
 
-	// Google Users founds and not in aws
+	// AWS Users found and not in Google
 	for _, awsUser := range awsUsers {
 		if _, found := googleMap[awsUser.Username]; !found {
 			delete = append(delete, aws.NewUser(awsUser.Name.GivenName, awsUser.Name.FamilyName, awsUser.Username, awsUser.Active))

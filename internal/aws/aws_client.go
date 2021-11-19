@@ -31,7 +31,7 @@ func NewAWSClient(c Client, d DynamoDBClient) (AWSClient, error) {
 
 // IsUserInGroup will determine if user (u) is in group (g)
 func (c *awsClient) IsUserInGroup(u *User, g *Group) (bool, error) {
-	return c.client.IsUserInGroup(u, g)
+	return c.dynamoDBClient.IsUserInGroup(u, g)
 }
 
 // AddUserToGroup will add the user specified to the group specified
@@ -42,9 +42,13 @@ func (c *awsClient) AddUserToGroup(u *User, g *Group) error {
 		return err
 	}
 
-	err = c.dynamoDBClient.AddUserToGroup(u, g)
-	if err != nil {
-		return err
+	isUserInDynamoDBGroup, err := c.dynamoDBClient.IsUserInGroup(u, g)
+
+	if !isUserInDynamoDBGroup {
+		err = c.dynamoDBClient.AddUserToGroup(u, g)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -84,12 +88,12 @@ func (c *awsClient) FindGroupByDisplayName(name string) (*Group, error) {
 // CreateUser will create the user specified
 func (c *awsClient) CreateUser(u *User) (*User, error) {
 
-	newUser, err := c.client.CreateUser(u)
+	err := c.dynamoDBClient.CreateUser(u)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.dynamoDBClient.CreateUser(newUser)
+	newUser, err := c.client.CreateUser(u)
 	if err != nil {
 		return nil, err
 	}
@@ -101,11 +105,6 @@ func (c *awsClient) CreateUser(u *User) (*User, error) {
 func (c *awsClient) UpdateUser(u *User) (*User, error) {
 
 	newUser, err := c.client.UpdateUser(u)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.dynamoDBClient.UpdateUser(newUser)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +180,16 @@ func (c *awsClient) GetGroupMembers(g *Group) ([]*User, error) {
 		return nil, err
 	}
 
-	return groupMembers, nil
+	awsGroupMembers := []*User{}
+	for _, groupMember := range groupMembers {
+		awsGroupMember, err := c.client.FindUserByEmail(groupMember.Username)
+		if err != nil {
+			return nil, err
+		}
+
+		awsGroupMembers = append(awsGroupMembers, awsGroupMember)
+	}
+	return awsGroupMembers, nil
 }
 
 // GetUsers will return existing users
@@ -192,5 +200,15 @@ func (c *awsClient) GetUsers() ([]*User, error) {
 		return nil, err
 	}
 
-	return users, nil
+	awsUsers := []*User{}
+	for _, user := range users {
+		awsUser, err := c.client.FindUserByEmail(user.Username)
+		if err != nil {
+			return nil, err
+		}
+
+		awsUsers = append(awsUsers, awsUser)
+	}
+
+	return awsUsers, nil
 }
