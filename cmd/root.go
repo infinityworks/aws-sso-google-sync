@@ -175,8 +175,8 @@ func addFlags(cmd *cobra.Command, cfg *config.Config) {
 	rootCmd.Flags().StringVarP(&cfg.UserMatch, "user-match", "m", "", "Google Workspace Users filter query parameter, example: 'name:John* email:admin*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-users")
 	rootCmd.Flags().StringVarP(&cfg.GroupMatch, "group-match", "g", "", "Google Workspace Groups filter query parameter, example: 'name:Admin* email:aws-*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-groups")
 	rootCmd.Flags().StringVarP(&cfg.SyncMethod, "sync-method", "s", config.DefaultSyncMethod, "Sync method to use (users_groups|groups)")
-	rootCmd.Flags().StringVarP(&cfg.DynamoDBTableUsers, "dynamodb-table-users", "", "sso-sync-henry-tmp-users", "DynamoDB table for user storage")
-	rootCmd.Flags().StringVarP(&cfg.DynamoDBTableGroups, "dynamodb-table-groups", "", "sso-sync-henry-tmp-groups", "DynamoDB table for group and group member storage")
+	rootCmd.Flags().StringVarP(&cfg.DynamoDBTableUsers, "dynamodb-table-users", "", "aws-sso-google-sync-users", "DynamoDB table for user storage")
+	rootCmd.Flags().StringVarP(&cfg.DynamoDBTableGroups, "dynamodb-table-groups", "", "aws-sso-google-sync-groups", "DynamoDB table for group and group member storage")
 }
 
 func logConfig(cfg *config.Config) {
