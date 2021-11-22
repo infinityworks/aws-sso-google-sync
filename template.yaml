@@ -149,6 +149,16 @@ Resources:
                 - !Ref AWSGoogleAdminEamil
                 - !Ref AWSSCIMEndpointSecret
                 - !Ref AWSSCIMAccessTokenSecret
+        - Statement:
+            - Sid: DynamoDBReadWritePolicy
+              Effect: Allow
+              Action:
+                - "dynamodb:Scan"
+                - "dynamodb:PutItem"
+                - "dynamodb:DeleteItem"
+              Resource:
+                - !Ref GroupsDynamoDBTable
+                - !Ref UsersDynamoDBTable
       Events:
         SyncScheduledEvent:
           Type: Schedule
