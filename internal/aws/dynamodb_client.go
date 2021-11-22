@@ -1,8 +1,6 @@
 package aws
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -48,23 +46,17 @@ func NewDynamoDBClient(config *DynamoDBConfig) DynamoDBClient {
 }
 
 func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
-	params := &dynamodb.ScanInput{
-		TableName: aws.String(c.config.DynamoDBTableGroups),
-	}
 
-	// todo - check whether scan is paginated
-	result, err := c.client.Scan(params)
+	items, err := c.scanAllItems(c.config.DynamoDBTableGroups)
 	if err != nil {
-		// todo - make errors better
-		log.Fatalf("Query API call failed: %s", err)
+		log.Error("dynamodb scan failed: ", err)
 		return nil, err
 	}
 
 	groupUsers := []*DynamoDBGroupUser{}
-	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &groupUsers)
+	err = dynamodbattribute.UnmarshalListOfMaps(items, &groupUsers)
 	if err != nil {
-		// todo - make errors better
-		log.Fatalf("Unmarshaling dynamodb response failed: %s", err)
+		log.Error("unmarshaling dynamodb response failed: ", err)
 		return nil, err
 	}
 
@@ -85,23 +77,17 @@ func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
 }
 
 func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
-	params := &dynamodb.ScanInput{
-		TableName: aws.String(c.config.DynamoDBTableGroups),
-	}
 
-	// todo - check whether scan is paginated
-	result, err := c.client.Scan(params)
+	items, err := c.scanAllItems(c.config.DynamoDBTableGroups)
 	if err != nil {
-		// todo - make errors better
-		log.Fatalf("Query API call failed: %s", err)
+		log.Error("dynamodb scan failed: ", err)
 		return nil, err
 	}
 
 	groupUsers := []*DynamoDBGroupUser{}
-	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &groupUsers)
+	err = dynamodbattribute.UnmarshalListOfMaps(items, &groupUsers)
 	if err != nil {
-		// todo - make errors better
-		log.Fatalf("Unmarshaling dynamodb response failed: %s", err)
+		log.Error("unmarshaling dynamodb response failed: ", err)
 		return nil, err
 	}
 
@@ -112,29 +98,20 @@ func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
 		})
 	}
 
-	fmt.Println(users)
-
 	return users, nil
 }
 
 func (c *dynamoDBClient) GetUsers() ([]*User, error) {
-	params := &dynamodb.ScanInput{
-		TableName: aws.String(c.config.DynamoDBTableUsers),
-	}
-
-	// todo - check whether scan is paginated
-	result, err := c.client.Scan(params)
+	items, err := c.scanAllItems(c.config.DynamoDBTableUsers)
 	if err != nil {
-		// todo - make errors better
-		log.Fatalf("Query API call failed: %s", err)
+		log.Error("dynamodb scan failed: ", err)
 		return nil, err
 	}
 
 	users := []*User{}
-	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &users)
+	err = dynamodbattribute.UnmarshalListOfMaps(items, &users)
 	if err != nil {
-		// todo - make errors better
-		log.Fatalf("Unmarshaling dynamodb response failed: %s", err)
+		log.Error("unmarshaling dynamodb response failed: ", err)
 		return nil, err
 	}
 
@@ -154,11 +131,11 @@ func (c *dynamoDBClient) AddUserToGroup(u *User, g *Group) error {
 
 	_, err := c.client.PutItem(input)
 	if err != nil {
-		log.Error("error calling dynamodb PutItem: %s", err)
+		log.Error("error calling dynamodb PutItem: ", err)
 		return err
 	}
 
-	log.Debug("added user to group in dynamodb: %s", g.DisplayName, u.Username)
+	log.Debug("added user to group in dynamodb: ", g.DisplayName, u.Username)
 	return nil
 }
 
@@ -177,7 +154,7 @@ func (c *dynamoDBClient) RemoveUserFromGroup(u *User, g *Group) error {
 
 	_, err := c.client.DeleteItem(input)
 	if err != nil {
-		log.Error("error calling dynamodb DeleteItem: %s", err)
+		log.Error("error calling dynamodb DeleteItem: ", err)
 		return err
 	}
 
@@ -197,11 +174,11 @@ func (c *dynamoDBClient) CreateUser(u *User) error {
 
 	_, err := c.client.PutItem(input)
 	if err != nil {
-		log.Error("error calling dynamodb PutItem: %s", err)
+		log.Error("error calling dynamodb PutItem: ", err)
 		return err
 	}
 
-	log.Debug("added user to dynamodb: %s", u.Username)
+	log.Debug("added user to dynamodb: ", u.Username)
 	return nil
 }
 
@@ -217,11 +194,11 @@ func (c *dynamoDBClient) DeleteUser(u *User) error {
 
 	_, err := c.client.DeleteItem(input)
 	if err != nil {
-		log.Error("error calling dynamodb DeleteItem: %s", err)
+		log.Error("error calling dynamodb DeleteItem: ", err)
 		return err
 	}
 
-	log.Debug("deleted user from dynamodb: %s", u.Username)
+	log.Debug("deleted user from dynamodb: ", u.Username)
 	return nil
 }
 
@@ -240,4 +217,33 @@ func (c *dynamoDBClient) IsUserInGroup(u *User, g *Group) (bool, error) {
 
 	return false, nil
 
+}
+
+func (c *dynamoDBClient) scanAllItems(tableName string) ([]map[string]*dynamodb.AttributeValue, error) {
+
+	items := []map[string]*dynamodb.AttributeValue{}
+
+	for {
+		var lastEvaluatedKey map[string]*dynamodb.AttributeValue
+
+		params := &dynamodb.ScanInput{
+			TableName:         aws.String(tableName),
+			ExclusiveStartKey: lastEvaluatedKey,
+		}
+
+		result, err := c.client.Scan(params)
+		if err != nil {
+			log.Error("dynamodb scan failed: ", err)
+			return nil, err
+		}
+
+		items = append(items, result.Items...)
+
+		lastEvaluatedKey = result.LastEvaluatedKey
+		if len(lastEvaluatedKey) == 0 {
+			break
+		}
+	}
+
+	return items, nil
 }
