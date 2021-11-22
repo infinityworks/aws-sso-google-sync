@@ -78,9 +78,27 @@ func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
 
 func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
 
-	items, err := c.scanAllItems(c.config.DynamoDBTableGroups)
+	queryInput := &dynamodb.QueryInput{
+		TableName: aws.String(c.config.DynamoDBTableGroups),
+		KeyConditions: map[string]*dynamodb.Condition{
+			"groupName": {
+				ComparisonOperator: aws.String("EQ"),
+				AttributeValueList: []*dynamodb.AttributeValue{
+					{
+						S: aws.String(g.DisplayName),
+					},
+				},
+			},
+		},
+	}
+
+	var items []map[string]*dynamodb.AttributeValue
+	err := c.client.QueryPages(queryInput, func(page *dynamodb.QueryOutput, lastPage bool) bool {
+		items = append(items, page.Items...)
+		return !lastPage
+	})
 	if err != nil {
-		return nil, fmt.Errorf("dynamodb groups get group members scan: %w", err)
+		return nil, fmt.Errorf("dynamodb groups get group members query: %w", err)
 	}
 
 	var groupUsers []*DynamoDBGroupUser
@@ -195,19 +213,42 @@ func (c *dynamoDBClient) DeleteUser(u *User) error {
 }
 
 func (c *dynamoDBClient) IsUserInGroup(u *User, g *Group) (bool, error) {
+	queryInput := &dynamodb.QueryInput{
+		TableName: aws.String(c.config.DynamoDBTableGroups),
+		KeyConditions: map[string]*dynamodb.Condition{
+			"groupName": {
+				ComparisonOperator: aws.String("EQ"),
+				AttributeValueList: []*dynamodb.AttributeValue{
+					{
+						S: aws.String(g.DisplayName),
+					},
+				},
+			},
+			"username": {
+				ComparisonOperator: aws.String("EQ"),
+				AttributeValueList: []*dynamodb.AttributeValue{
+					{
+						S: aws.String(u.Username),
+					},
+				},
+			},
+		},
+	}
 
-	groupMembers, err := c.GetGroupMembers(g)
+	fmt.Println("checking if user is in group: ", u.Username, g.DisplayName)
+
+	var items []map[string]*dynamodb.AttributeValue
+	err := c.client.QueryPages(queryInput, func(page *dynamodb.QueryOutput, lastPage bool) bool {
+		items = append(items, page.Items...)
+		return !lastPage
+	})
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("dynamodb groups get group members query: %w", err)
 	}
 
-	for _, groupMember := range groupMembers {
-		if u.Username == groupMember.Username {
-			return true, nil
-		}
-	}
+	fmt.Println(items)
 
-	return false, nil
+	return len(items) > 0, nil
 
 }
 
