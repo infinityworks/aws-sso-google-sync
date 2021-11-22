@@ -1,6 +1,8 @@
 package aws
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -49,15 +51,13 @@ func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
 
 	items, err := c.scanAllItems(c.config.DynamoDBTableGroups)
 	if err != nil {
-		log.Error("dynamodb scan failed: ", err)
-		return nil, err
+		return nil, fmt.Errorf("dynamodb get groups scan: %w", err)
 	}
 
 	groupUsers := []*DynamoDBGroupUser{}
 	err = dynamodbattribute.UnmarshalListOfMaps(items, &groupUsers)
 	if err != nil {
-		log.Error("unmarshaling dynamodb response failed: ", err)
-		return nil, err
+		return nil, fmt.Errorf("unmarshaling dynamodb get groups response: %w", err)
 	}
 
 	groupNames := map[string]struct{}{}
@@ -80,15 +80,13 @@ func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
 
 	items, err := c.scanAllItems(c.config.DynamoDBTableGroups)
 	if err != nil {
-		log.Error("dynamodb scan failed: ", err)
-		return nil, err
+		return nil, fmt.Errorf("dynamodb groups get group members scan: %w", err)
 	}
 
 	groupUsers := []*DynamoDBGroupUser{}
 	err = dynamodbattribute.UnmarshalListOfMaps(items, &groupUsers)
 	if err != nil {
-		log.Error("unmarshaling dynamodb response failed: ", err)
-		return nil, err
+		return nil, fmt.Errorf("unmarshaling dynamodb get group members response: %w", err)
 	}
 
 	users := []*User{}
@@ -104,15 +102,13 @@ func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
 func (c *dynamoDBClient) GetUsers() ([]*User, error) {
 	items, err := c.scanAllItems(c.config.DynamoDBTableUsers)
 	if err != nil {
-		log.Error("dynamodb scan failed: ", err)
-		return nil, err
+		return nil, fmt.Errorf("dynamodb users scan: %w", err)
 	}
 
 	users := []*User{}
 	err = dynamodbattribute.UnmarshalListOfMaps(items, &users)
 	if err != nil {
-		log.Error("unmarshaling dynamodb response failed: ", err)
-		return nil, err
+		return nil, fmt.Errorf("unmarshaling dynamodb get users response: %w", err)
 	}
 
 	return users, nil
@@ -131,11 +127,10 @@ func (c *dynamoDBClient) AddUserToGroup(u *User, g *Group) error {
 
 	_, err := c.client.PutItem(input)
 	if err != nil {
-		log.Error("error calling dynamodb PutItem: ", err)
-		return err
+		return fmt.Errorf("calling dynamodb PutItem with group user: %w", err)
 	}
 
-	log.Debug("added user to group in dynamodb: ", g.DisplayName, u.Username)
+	log.Debug("added user to group in dynamodb: %s, %s", g.DisplayName, u.Username)
 	return nil
 }
 
@@ -154,8 +149,7 @@ func (c *dynamoDBClient) RemoveUserFromGroup(u *User, g *Group) error {
 
 	_, err := c.client.DeleteItem(input)
 	if err != nil {
-		log.Error("error calling dynamodb DeleteItem: ", err)
-		return err
+		return fmt.Errorf("calling dynamodb DeleteItem with group user: %w", err)
 	}
 
 	log.Debug("deleted user from group in dynamodb: ", g.DisplayName, u.Username)
@@ -174,8 +168,7 @@ func (c *dynamoDBClient) CreateUser(u *User) error {
 
 	_, err := c.client.PutItem(input)
 	if err != nil {
-		log.Error("error calling dynamodb PutItem: ", err)
-		return err
+		return fmt.Errorf("calling dynamodb PutItem with user: %w", err)
 	}
 
 	log.Debug("added user to dynamodb: ", u.Username)
@@ -194,8 +187,7 @@ func (c *dynamoDBClient) DeleteUser(u *User) error {
 
 	_, err := c.client.DeleteItem(input)
 	if err != nil {
-		log.Error("error calling dynamodb DeleteItem: ", err)
-		return err
+		return fmt.Errorf("calling dynamodb DeleteItem with user: %w", err)
 	}
 
 	log.Debug("deleted user from dynamodb: ", u.Username)
@@ -233,8 +225,7 @@ func (c *dynamoDBClient) scanAllItems(tableName string) ([]map[string]*dynamodb.
 
 		result, err := c.client.Scan(params)
 		if err != nil {
-			log.Error("dynamodb scan failed: ", err)
-			return nil, err
+			return nil, fmt.Errorf("scanning all dynamodb items in table [%s]: %w", tableName, err)
 		}
 
 		items = append(items, result.Items...)

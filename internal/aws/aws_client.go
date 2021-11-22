@@ -1,5 +1,7 @@
 package aws
 
+import "fmt"
+
 type AWSClient interface {
 	AddUserToGroup(*User, *Group) error
 	CreateGroup(*Group) (*Group, error)
@@ -41,13 +43,13 @@ func (c *awsClient) AddUserToGroup(u *User, g *Group) error {
 	if !isUserInDynamoDBGroup {
 		err = c.dynamoDBClient.AddUserToGroup(u, g)
 		if err != nil {
-			return err
+			return fmt.Errorf("adding user to group in dynamodb: %w", err)
 		}
 	}
 
 	err = c.client.AddUserToGroup(u, g)
 	if err != nil {
-		return err
+		return fmt.Errorf("adding user to group in sso: %w", err)
 	}
 
 	return nil
@@ -57,12 +59,12 @@ func (c *awsClient) AddUserToGroup(u *User, g *Group) error {
 func (c *awsClient) RemoveUserFromGroup(u *User, g *Group) error {
 	err := c.client.RemoveUserFromGroup(u, g)
 	if err != nil {
-		return err
+		return fmt.Errorf("removing user from group in sso: %w", err)
 	}
 
 	err = c.dynamoDBClient.RemoveUserFromGroup(u, g)
 	if err != nil {
-		return err
+		return fmt.Errorf("removing user from group in dynamodb: %w", err)
 	}
 
 	return nil
@@ -89,12 +91,12 @@ func (c *awsClient) CreateUser(u *User) (*User, error) {
 
 	err := c.dynamoDBClient.CreateUser(u)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating user in dynamodb: %w", err)
 	}
 
 	newUser, err := c.client.CreateUser(u)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating user in sso: %w", err)
 	}
 
 	return newUser, nil
@@ -105,7 +107,7 @@ func (c *awsClient) UpdateUser(u *User) (*User, error) {
 
 	newUser, err := c.client.UpdateUser(u)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("updating user in sso: %w", err)
 	}
 
 	return newUser, nil
@@ -116,12 +118,12 @@ func (c *awsClient) DeleteUser(u *User) error {
 
 	err := c.client.DeleteUser(u)
 	if err != nil {
-		return err
+		return fmt.Errorf("delete user from sso: %w", err)
 	}
 
 	err = c.dynamoDBClient.DeleteUser(u)
 	if err != nil {
-		return err
+		return fmt.Errorf("delete user from dynamo: %w", err)
 	}
 
 	return nil
@@ -132,7 +134,8 @@ func (c *awsClient) CreateGroup(g *Group) (*Group, error) {
 
 	newGroup, err := c.client.CreateGroup(g)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create group in sso: %w", err)
+
 	}
 
 	return newGroup, nil
@@ -143,18 +146,18 @@ func (c *awsClient) DeleteGroup(g *Group) error {
 
 	err := c.client.DeleteGroup(g)
 	if err != nil {
-		return err
+		return fmt.Errorf("deleting group from sso: %w", err)
 	}
 
 	dynamoDBGroupMembers, err := c.dynamoDBClient.GetGroupMembers(g)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting group members from dynamodb: %w", err)
 	}
 
 	for _, member := range dynamoDBGroupMembers {
 		err = c.dynamoDBClient.RemoveUserFromGroup(member, g)
 		if err != nil {
-			return err
+			return fmt.Errorf("deleting group from dynamodb: %w", err)
 		}
 
 	}
@@ -167,14 +170,14 @@ func (c *awsClient) GetGroups() ([]*Group, error) {
 
 	groups, err := c.dynamoDBClient.GetGroups()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting groups from dynamodb: %w", err)
 	}
 
 	awsGroups := []*Group{}
 	for _, group := range groups {
 		awsGroup, err := c.client.FindGroupByDisplayName(group.DisplayName)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("finding group by display name in sso: %w", err)
 		}
 
 		awsGroups = append(awsGroups, awsGroup)
@@ -188,14 +191,14 @@ func (c *awsClient) GetGroupMembers(g *Group) ([]*User, error) {
 
 	groupMembers, err := c.dynamoDBClient.GetGroupMembers(g)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting group members from dynamodb: %w", err)
 	}
 
 	awsGroupMembers := []*User{}
 	for _, groupMember := range groupMembers {
 		awsGroupMember, err := c.client.FindUserByEmail(groupMember.Username)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("finding user by email in sso: %w", err)
 		}
 
 		awsGroupMembers = append(awsGroupMembers, awsGroupMember)
@@ -208,14 +211,14 @@ func (c *awsClient) GetUsers() ([]*User, error) {
 
 	users, err := c.dynamoDBClient.GetUsers()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting users from dynamodb: %w", err)
 	}
 
 	awsUsers := []*User{}
 	for _, user := range users {
 		awsUser, err := c.client.FindUserByEmail(user.Username)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("finding user by email in sso: %w", err)
 		}
 
 		awsUsers = append(awsUsers, awsUser)

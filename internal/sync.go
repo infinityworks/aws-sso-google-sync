@@ -38,7 +38,7 @@ type SyncGSuite interface {
 
 // SyncGSuite is an object type that will synchronize real users and groups
 type syncGSuite struct {
-	aws    aws.Client
+	aws    aws.AWSClient
 	google google.Client
 	cfg    *config.Config
 
