@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "aws-sso-google-sync"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1chanu83fpvip"
+s3_prefix = "aws-sso-google-sync"
+region = "eu-west-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "ScheduleExpression=\"rate(5 minutes)\" LogLevel=\"warn\" LogFormat=\"json\" GoogleUserMatch=\"\" GoogleGroupMatch=\"aws-sso-*@paymentsense.com\" IgnoreGroups=\"\" IgnoreUsers=\"\" IncludeGroups=\"\" SyncMethod=\"groups\" DynamoDBUsersTableName=\"aws-sso-google-sync-users\" DynamoDBGroupsTableName=\"aws-sso-google-sync-groups\""
+image_repositories = []
