@@ -157,6 +157,7 @@ Resources:
                 - "dynamodb:Scan"
                 - "dynamodb:PutItem"
                 - "dynamodb:DeleteItem"
+                - "dynamodb:Query"
               Resource:
                 - !GetAtt GroupsDynamoDBTable.Arn
                 - !GetAtt UsersDynamoDBTable.Arn

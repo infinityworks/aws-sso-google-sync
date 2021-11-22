@@ -235,8 +235,6 @@ func (c *dynamoDBClient) IsUserInGroup(u *User, g *Group) (bool, error) {
 		},
 	}
 
-	fmt.Println("checking if user is in group: ", u.Username, g.DisplayName)
-
 	var items []map[string]*dynamodb.AttributeValue
 	err := c.client.QueryPages(queryInput, func(page *dynamodb.QueryOutput, lastPage bool) bool {
 		items = append(items, page.Items...)
@@ -245,8 +243,6 @@ func (c *dynamoDBClient) IsUserInGroup(u *User, g *Group) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("dynamodb groups get group members query: %w", err)
 	}
-
-	fmt.Println(items)
 
 	return len(items) > 0, nil
 
