@@ -54,7 +54,7 @@ func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
 		return nil, fmt.Errorf("dynamodb get groups scan: %w", err)
 	}
 
-	groupUsers := []*DynamoDBGroupUser{}
+	var groupUsers []*DynamoDBGroupUser
 	err = dynamodbattribute.UnmarshalListOfMaps(items, &groupUsers)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshaling dynamodb get groups response: %w", err)
@@ -68,7 +68,7 @@ func (c *dynamoDBClient) GetGroups() ([]*Group, error) {
 	}
 
 	groups := []*Group{}
-	for groupName, _ := range groupNames {
+	for groupName := range groupNames {
 		groups = append(groups, &Group{
 			DisplayName: groupName,
 		})
@@ -83,7 +83,7 @@ func (c *dynamoDBClient) GetGroupMembers(g *Group) ([]*User, error) {
 		return nil, fmt.Errorf("dynamodb groups get group members scan: %w", err)
 	}
 
-	groupUsers := []*DynamoDBGroupUser{}
+	var groupUsers []*DynamoDBGroupUser
 	err = dynamodbattribute.UnmarshalListOfMaps(items, &groupUsers)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshaling dynamodb get group members response: %w", err)
@@ -213,27 +213,18 @@ func (c *dynamoDBClient) IsUserInGroup(u *User, g *Group) (bool, error) {
 
 func (c *dynamoDBClient) scanAllItems(tableName string) ([]map[string]*dynamodb.AttributeValue, error) {
 
+	params := &dynamodb.ScanInput{
+		TableName: aws.String(tableName),
+	}
+
 	items := []map[string]*dynamodb.AttributeValue{}
+	err := c.client.ScanPages(params, func(page *dynamodb.ScanOutput, lastPage bool) bool {
+		items = append(items, page.Items...)
+		return !lastPage
+	})
 
-	for {
-		var lastEvaluatedKey map[string]*dynamodb.AttributeValue
-
-		params := &dynamodb.ScanInput{
-			TableName:         aws.String(tableName),
-			ExclusiveStartKey: lastEvaluatedKey,
-		}
-
-		result, err := c.client.Scan(params)
-		if err != nil {
-			return nil, fmt.Errorf("scanning all dynamodb items in table [%s]: %w", tableName, err)
-		}
-
-		items = append(items, result.Items...)
-
-		lastEvaluatedKey = result.LastEvaluatedKey
-		if len(lastEvaluatedKey) == 0 {
-			break
-		}
+	if err != nil {
+		return nil, fmt.Errorf("scanning all dynamodb items in table [%s]: %w", tableName, err)
 	}
 
 	return items, nil

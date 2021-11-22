@@ -2,21 +2,11 @@ package aws
 
 import "fmt"
 
-type AWSClient interface {
-	AddUserToGroup(*User, *Group) error
-	CreateGroup(*Group) (*Group, error)
-	CreateUser(*User) (*User, error)
-	DeleteGroup(*Group) error
-	DeleteUser(*User) error
-	FindGroupByDisplayName(string) (*Group, error)
-	FindUserByEmail(string) (*User, error)
-	FindUserByID(string) (*User, error)
-	GetUsers() ([]*User, error)
-	GetGroupMembers(*Group) ([]*User, error)
-	IsUserInGroup(*User, *Group) (bool, error)
-	GetGroups() ([]*Group, error)
-	UpdateUser(*User) (*User, error)
-	RemoveUserFromGroup(*User, *Group) error
+func NewAWSClient(c Client, d DynamoDBClient) (Client, error) {
+	return &awsClient{
+		client:         c,
+		dynamoDBClient: d,
+	}, nil
 }
 
 type awsClient struct {
@@ -24,12 +14,7 @@ type awsClient struct {
 	dynamoDBClient DynamoDBClient
 }
 
-func NewAWSClient(c Client, d DynamoDBClient) (AWSClient, error) {
-	return &awsClient{
-		client:         c,
-		dynamoDBClient: d,
-	}, nil
-}
+var _ Client = (*awsClient)(nil)
 
 // IsUserInGroup will determine if user (u) is in group (g)
 func (c *awsClient) IsUserInGroup(u *User, g *Group) (bool, error) {
@@ -177,7 +162,7 @@ func (c *awsClient) GetGroups() ([]*Group, error) {
 	for _, group := range groups {
 		awsGroup, err := c.client.FindGroupByDisplayName(group.DisplayName)
 		if err != nil {
-			return nil, fmt.Errorf("finding group by display name in sso: %w", err)
+			return nil, fmt.Errorf("finding group [%s] by display name in sso: %w", group.DisplayName, err)
 		}
 
 		awsGroups = append(awsGroups, awsGroup)

@@ -47,7 +47,7 @@ Parameters:
   LogLevel:
     Type: String
     Description: Log level for Lambda function logging
-    Default: warn
+    Default: info
     AllowedValues:
       - panic
       - fatal
@@ -122,7 +122,6 @@ Resources:
       Runtime: go1.x
       Handler: dist/ssosync_linux_amd64/ssosync
       Timeout: 300
-      ReservedConcurrentExecutions: 1
       Environment:
         Variables:
           SSOSYNC_LOG_LEVEL: !Ref LogLevel
@@ -140,6 +139,7 @@ Resources:
           SSOSYNC_DYNAMODB_TABLE_USERS: !Ref DynamoDBUsersTableName
           SSOSYNC_DYNAMODB_TABLE_GROUPS: !Ref DynamoDBGroupsTableName
       Policies:
+        - AWSLambdaBasicExecutionRole
         - Statement:
             - Sid: SSMGetParameterPolicy
               Effect: Allow
@@ -158,8 +158,8 @@ Resources:
                 - "dynamodb:PutItem"
                 - "dynamodb:DeleteItem"
               Resource:
-                - !Ref GroupsDynamoDBTable
-                - !Ref UsersDynamoDBTable
+                - !GetAtt GroupsDynamoDBTable.Arn
+                - !GetAtt UsersDynamoDBTable.Arn
       Events:
         SyncScheduledEvent:
           Type: Schedule
@@ -175,6 +175,8 @@ Resources:
       BillingMode: "PAY_PER_REQUEST"
       SSESpecification:
         SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
         - AttributeName: username
           AttributeType: S
@@ -189,6 +191,8 @@ Resources:
       BillingMode: "PAY_PER_REQUEST"
       SSESpecification:
         SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
         - AttributeName: groupName
           AttributeType: S

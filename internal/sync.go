@@ -38,7 +38,7 @@ type SyncGSuite interface {
 
 // SyncGSuite is an object type that will synchronize real users and groups
 type syncGSuite struct {
-	aws    aws.AWSClient
+	aws    aws.Client
 	google google.Client
 	cfg    *config.Config
 
@@ -46,7 +46,7 @@ type syncGSuite struct {
 }
 
 // New will create a new SyncGSuite object
-func New(cfg *config.Config, a aws.AWSClient, g google.Client) SyncGSuite {
+func New(cfg *config.Config, a aws.Client, g google.Client) SyncGSuite {
 	return &syncGSuite{
 		aws:    a,
 		google: g,
@@ -390,7 +390,7 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 
 	for _, awsGroup := range allAwsGroups {
 		if _, ok := googleGroupsUsers[awsGroup.DisplayName]; !ok {
-			log.Debug("aws group not present in google group. skipping...")
+			log.WithFields(log.Fields{"group": awsGroup.DisplayName}).Debug("aws group not present in google groups. skipping...")
 			continue
 		}
 

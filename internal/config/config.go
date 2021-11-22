@@ -34,7 +34,7 @@ type Config struct {
 	// DynamoDB Table used to store users on AWS side due to 50-limit from SCIM endpoint: https://github.com/aws/aws-sdk/issues/109
 	DynamoDBTableUsers string `mapstructure:"dynamodb_table_users"`
 	// DynamoDB Table used to store groups and group membership on AWS side due to 50-limit from SCIM endpoint: https://github.com/aws/aws-sdk/issues/109
-	DynamoDBTableGroups string `mapstructure:"dynamodb_table_users"`
+	DynamoDBTableGroups string `mapstructure:"dynamodb_table_groups"`
 }
 
 const (
