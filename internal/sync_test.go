@@ -54,8 +54,8 @@ func Test_getGroupOperations(t *testing.T) {
 					aws.NewGroup("Group-2"),
 				},
 				googleGroups: []*admin.Group{
-					{Name: "Group-1"},
-					{Name: "Group-2"},
+					{Email: "Group-1"},
+					{Email: "Group-2"},
 				},
 			},
 			wantAdd:    nil,
@@ -70,8 +70,8 @@ func Test_getGroupOperations(t *testing.T) {
 			args: args{
 				awsGroups: nil,
 				googleGroups: []*admin.Group{
-					{Name: "Group-1"},
-					{Name: "Group-2"},
+					{Email: "Group-1"},
+					{Email: "Group-2"},
 				},
 			},
 			wantAdd: []*aws.Group{
@@ -104,8 +104,8 @@ func Test_getGroupOperations(t *testing.T) {
 					aws.NewGroup("Group-3"),
 				},
 				googleGroups: []*admin.Group{
-					{Name: "Group-1"},
-					{Name: "Group-2"},
+					{Email: "Group-1"},
+					{Email: "Group-2"},
 				},
 			},
 			wantAdd: []*aws.Group{

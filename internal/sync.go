@@ -180,29 +180,33 @@ func (s *syncGSuite) SyncGroups(query string) error {
 			continue
 		}
 
+		// groupKey is shared between AWS and Google.
+		groupKey := googleGroupKey(g)
+
 		log := log.WithFields(log.Fields{
 			"group": g.Email,
+			"key":   groupKey,
 		})
 
 		log.Debug("Check group")
 		var group *aws.Group
 
-		gg, err := s.aws.FindGroupByDisplayName(g.Email)
+		gg, err := s.aws.FindGroupByDisplayName(groupKey)
 		if err != nil && err != aws.ErrGroupNotFound {
 			return err
 		}
 
 		if gg != nil {
 			log.Debug("Found group")
-			correlatedGroups[gg.DisplayName] = gg
+			correlatedGroups[groupKey] = gg
 			group = gg
 		} else {
 			log.Info("Creating group in AWS")
-			newGroup, err := s.aws.CreateGroup(aws.NewGroup(g.Email))
+			newGroup, err := s.aws.CreateGroup(aws.NewGroup(groupKey))
 			if err != nil {
 				return err
 			}
-			correlatedGroups[newGroup.DisplayName] = newGroup
+			correlatedGroups[groupKey] = newGroup
 			group = newGroup
 		}
 
@@ -374,8 +378,12 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 	log.Debug("creating aws groups added in google")
 	newAwsGroups := []*aws.Group{}
 	for _, awsGroup := range addAWSGroups {
+		groupKey := awsGroupKey(awsGroup)
 
-		log := log.WithFields(log.Fields{"group": awsGroup.DisplayName})
+		log := log.WithFields(log.Fields{
+			"group": awsGroup.DisplayName,
+			"group_key": groupKey,
+		})
 
 		log.Info("creating group")
 		newAwsGroup, err := s.aws.CreateGroup(awsGroup)
@@ -389,13 +397,20 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 	allAwsGroups := append(awsGroups, newAwsGroups...)
 
 	for _, awsGroup := range allAwsGroups {
-		if _, ok := googleGroupsUsers[awsGroup.DisplayName]; !ok {
-			log.WithFields(log.Fields{"group": awsGroup.DisplayName}).Debug("aws group not present in google groups. skipping...")
+		groupKey := awsGroupKey(awsGroup)
+
+		log := log.WithFields(log.Fields{
+			"group": awsGroup.DisplayName,
+			"group_key": groupKey,
+		})
+
+		if _, ok := googleGroupsUsers[groupKey]; !ok {
+			log.Debug("aws group not present in google groups. skipping...")
 			continue
 		}
 
 		// add members of the new group
-		for _, googleUser := range googleGroupsUsers[awsGroup.DisplayName] {
+		for _, googleUser := range googleGroupsUsers[groupKey] {
 
 			// equivalent aws user of google user on the fly
 			log.Debug("finding user")
@@ -418,12 +433,15 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 	// validate groups members are equal in aws and google
 	log.Debug("validating groups members, equals in aws and google")
 	for _, awsGroup := range equalAWSGroups {
+		groupKey := awsGroupKey(awsGroup)
 
 		// add members of the new group
-		log := log.WithFields(log.Fields{"group": awsGroup.DisplayName})
+		log := log.WithFields(log.Fields{
+			"group": awsGroup.DisplayName,
+			"group_key": groupKey,
+		})
 
-		for _, googleUser := range googleGroupsUsers[awsGroup.DisplayName] {
-
+		for _, googleUser := range googleGroupsUsers[groupKey] {
 			log.WithField("user", googleUser.PrimaryEmail).Debug("finding user")
 			awsUserFull, err := s.aws.FindUserByEmail(googleUser.PrimaryEmail)
 			if err != nil {
@@ -445,7 +463,7 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 			}
 		}
 
-		for _, awsUser := range deleteUsersFromGroup[awsGroup.DisplayName] {
+		for _, awsUser := range deleteUsersFromGroup[groupKey] {
 			log.WithField("user", awsUser.Username).Warn("removing user from group")
 			err := s.aws.RemoveUserFromGroup(awsUser, awsGroup)
 			if err != nil {
@@ -457,11 +475,15 @@ func (s *syncGSuite) SyncGroupsUsers(query string) error {
 	// delete aws groups (deleted in google)
 	log.Debug("delete aws groups deleted in google")
 	for _, awsGroup := range delAWSGroups {
+		groupKey := awsGroupKey(awsGroup)
 
-		log := log.WithFields(log.Fields{"group": awsGroup.DisplayName})
+		log := log.WithFields(log.Fields{
+			"group": awsGroup.DisplayName,
+			"group_key": groupKey,
+		})
 
 		log.Debug("finding group")
-		awsGroupFull, err := s.aws.FindGroupByDisplayName(awsGroup.DisplayName)
+		awsGroupFull, err := s.aws.FindGroupByDisplayName(groupKey)
 		if err != nil {
 			return err
 		}
@@ -488,8 +510,9 @@ func (s *syncGSuite) getGoogleGroupsAndUsers(googleGroups []*admin.Group) ([]*ad
 	gUniqUsers := make(map[string]*admin.User)
 
 	for _, g := range googleGroups {
+		awsGroupName := googleGroupKey(g)
 
-		log := log.WithFields(log.Fields{"group": g.Name})
+		log := log.WithFields(log.Fields{"group": g.Name, "aws_group": awsGroupName})
 
 		if s.ignoreGroup(g.Email) {
 			log.Debug("ignoring group")
@@ -536,7 +559,7 @@ func (s *syncGSuite) getGoogleGroupsAndUsers(googleGroups []*admin.Group) ([]*ad
 				gUniqUsers[m.Email] = u[0]
 			}
 		}
-		gGroupsUsers[g.Name] = membersUsers
+		gGroupsUsers[awsGroupName] = membersUsers
 	}
 
 	for _, user := range gUniqUsers {
@@ -582,26 +605,30 @@ func getGroupOperations(awsGroups []*aws.Group, googleGroups []*admin.Group) (ad
 	googleMap := make(map[string]struct{})
 
 	for _, awsGroup := range awsGroups {
-		awsMap[awsGroup.DisplayName] = awsGroup
+		awsMap[awsGroupKey(awsGroup)] = awsGroup
 	}
 
 	for _, gGroup := range googleGroups {
-		googleMap[gGroup.Name] = struct{}{}
+		googleMap[googleGroupKey(gGroup)] = struct{}{}
 	}
 
 	// Google Groups not found or already exist in AWS
 	for _, gGroup := range googleGroups {
-		if _, found := awsMap[gGroup.Name]; found {
-			equals = append(equals, awsMap[gGroup.Name])
+		groupKey := googleGroupKey(gGroup)
+
+		if _, found := awsMap[groupKey]; found {
+			equals = append(equals, awsMap[groupKey])
 		} else {
-			add = append(add, aws.NewGroup(gGroup.Name))
+			add = append(add, aws.NewGroup(groupKey))
 		}
 	}
 
 	// AWS Groups founds and not in Google
 	for _, awsGroup := range awsGroups {
-		if _, found := googleMap[awsGroup.DisplayName]; !found {
-			delete = append(delete, aws.NewGroup(awsGroup.DisplayName))
+		groupKey := awsGroupKey(awsGroup)
+
+		if _, found := googleMap[groupKey]; !found {
+			delete = append(delete, aws.NewGroup(groupKey))
 		}
 	}
 
@@ -780,4 +807,16 @@ func (s *syncGSuite) includeGroup(name string) bool {
 	}
 
 	return false
+}
+
+// googleGroupKey returns the identifier shared between Google Workspaces and
+// AWS SSO when syncing groups.
+func googleGroupKey(group *admin.Group) string {
+	return group.Email
+}
+
+// awsGroupKey returns the identifier shared between Google Workspaces and
+// AWS SSO when syncing groups.
+func awsGroupKey(group *aws.Group) string {
+	return group.DisplayName
 }
