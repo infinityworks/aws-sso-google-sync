@@ -1,8 +1,8 @@
 # SSO Sync
 
-![Github Action](https://github.com/awslabs/ssosync/workflows/main/badge.svg)
+![Github Action](https://github.com/infinityworks/aws-sso-google-sync/workflows/main/badge.svg)
 <a href='https://github.com/jpoles1/gopherbadger' target='_blank'>![gopherbadger-tag-do-not-edit](https://img.shields.io/badge/Go%20Coverage-42%25-brightgreen.svg?longCache=true&style=flat)</a>
-[![Go Report Card](https://goreportcard.com/badge/github.com/awslabs/ssosync)](https://goreportcard.com/report/github.com/awslabs/ssosync)
+[![Go Report Card](https://goreportcard.com/badge/github.com/infinityworks/aws-sso-google-sync)](https://goreportcard.com/report/github.com/infinityworks/aws-sso-google-sync)
 [![License Apache 2](https://img.shields.io/badge/License-Apache2-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Taylor Swift](https://img.shields.io/badge/secured%20by-taylor%20swift-brightgreen.svg)](https://twitter.com/SwiftOnSecurity)
 
@@ -46,7 +46,7 @@ what it is going to do.
 
 ## Installation
 
-You can `go get github.com/awslabs/ssosync` or grab a Release binary from the release page. The binary
+You can `go get github.com/infinityworks/aws-sso-google-sync` or grab a Release binary from the release page. The binary
 can be used from your local computer, or you can deploy to AWS Lambda to run on a CloudWatch Event
 for regular synchronization.
 
@@ -96,7 +96,7 @@ SSOSYNC_SCIM_ENDPOINT=<YOUR_ENDPOINT>
 ## Local Usage
 
 ```bash
-git clone https://github.com/awslabs/ssosync.git
+git clone https://github.com/infinityworks/aws-sso-google-sync.git
 cd ssosync/
 make go-build
 ```
@@ -108,27 +108,29 @@ make go-build
 ```bash
 A command line tool to enable you to synchronise your Google
 Apps (Google Workspace) users to AWS Single Sign-on (AWS SSO)
-Complete documentation is available at https://github.com/awslabs/ssosync
+Complete documentation is available at https://github.com/infinityworks/aws-sso-google-sync
 
 Usage:
   ssosync [flags]
 
 Flags:
-  -t, --access-token string         AWS SSO SCIM API Access Token
-  -d, --debug                       enable verbose / debug logging
-  -e, --endpoint string             AWS SSO SCIM API Endpoint
-  -u, --google-admin string         Google Workspace admin user email
-  -c, --google-credentials string   path to Google Workspace credentials file (default "credentials.json")
-  -g, --group-match string          Google Workspace Groups filter query parameter, example: 'name:Admin* email:aws-*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-groups
-  -h, --help                        help for ssosync
-      --ignore-groups strings       ignores these Google Workspace groups
-      --ignore-users strings        ignores these Google Workspace users
-      --include-groups strings      include only these Google Workspace groups, NOTE: only works when --sync-method 'users_groups'
-      --log-format string           log format (default "text")
-      --log-level string            log level (default "info")
-  -s, --sync-method string          Sync method to use (users_groups|groups) (default "groups")
-  -m, --user-match string           Google Workspace Users filter query parameter, example: 'name:John* email:admin*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-users
-  -v, --version                     version for ssosync
+  -t, --access-token string               AWS SSO SCIM API Access Token
+  -d, --debug                             enable verbose / debug logging
+  -e, --endpoint string                   AWS SSO SCIM API Endpoint
+      --dynamodb-table-users string       DynamoDB Table name for AWS SSO user storage
+      --dynamodb-table-groups string      DynamoDB Table name for AWS SSO group and group membership storage
+  -u, --google-admin string               Google Workspace admin user email
+  -c, --google-credentials string         path to Google Workspace credentials file (default "credentials.json")
+  -g, --group-match string                Google Workspace Groups filter query parameter, example: 'name:Admin* email:aws-*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-groups
+  -h, --help                              help for ssosync
+      --ignore-groups strings             ignores these Google Workspace groups
+      --ignore-users strings              ignores these Google Workspace users
+      --include-groups strings            include only these Google Workspace groups, NOTE: only works when --sync-method 'users_groups'
+      --log-format string                 log format (default "text")
+      --log-level string                  log level (default "info")
+  -s, --sync-method string                Sync method to use (users_groups|groups) (default "groups")
+  -m, --user-match string                 Google Workspace Users filter query parameter, example: 'name:John* email:admin*', see: https://developers.google.com/admin-sdk/directory/v1/guides/search-users
+  -v, --version                           version for ssosync
 ```
 
 The function has `two behaviour` and these are controlled by the `--sync-method` flag, this behavior could be

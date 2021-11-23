@@ -27,7 +27,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/awslabs/ssosync/internal/aws/mock"
+	"github.com/infinityworks/aws-sso-google-sync/internal/aws/mock"
 )
 
 type nopCloser struct {

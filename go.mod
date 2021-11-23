@@ -1,4 +1,4 @@
-module github.com/awslabs/ssosync
+module github.com/infinityworks/aws-sso-google-sync
 
 go 1.16
 

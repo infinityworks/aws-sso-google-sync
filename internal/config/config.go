@@ -31,6 +31,10 @@ type Config struct {
 	IncludeGroups []string `mapstructure:"include_groups"`
 	// SyncMethod allow to defined the sync method used to get the user and groups from Google Workspace
 	SyncMethod string `mapstructure:"sync_method"`
+	// DynamoDB Table used to store users on AWS side due to 50-limit from SCIM endpoint: https://github.com/aws/aws-sdk/issues/109
+	DynamoDBTableUsers string `mapstructure:"dynamodb_table_users"`
+	// DynamoDB Table used to store groups and group membership on AWS side due to 50-limit from SCIM endpoint: https://github.com/aws/aws-sdk/issues/109
+	DynamoDBTableGroups string `mapstructure:"dynamodb_table_groups"`
 }
 
 const (
