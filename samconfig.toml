@@ -8,5 +8,5 @@ s3_prefix = "aws-sso-google-sync"
 region = "eu-west-2"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "ScheduleExpression=\"rate(5 minutes)\" LogLevel=\"info\" LogFormat=\"json\" GoogleUserMatch=\"\" GoogleGroupMatch=\"email:aws-*\" IgnoreGroups=\"\" IgnoreUsers=\"\" IncludeGroups=\"\" SyncMethod=\"groups\" DynamoDBUsersTableName=\"aws-sso-google-sync-users\" DynamoDBGroupsTableName=\"aws-sso-google-sync-groups\""
+parameter_overrides = "ScheduleExpression=\"rate(5 minutes)\" LogLevel=\"info\" LogFormat=\"json\" GoogleUserMatch=\"\" GoogleGroupMatch=\"email:aws-sso-*\" IgnoreGroups=\"\" IgnoreUsers=\"\" IncludeGroups=\"\" SyncMethod=\"groups\" DynamoDBUsersTableName=\"aws-sso-google-sync-users\" DynamoDBGroupsTableName=\"aws-sso-google-sync-groups\""
 image_repositories = []
