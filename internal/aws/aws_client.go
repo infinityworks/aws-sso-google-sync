@@ -1,6 +1,10 @@
 package aws
 
-import "fmt"
+import (
+	"fmt"
+
+	log "github.com/sirupsen/logrus"
+)
 
 func NewAWSClient(c Client, d DynamoDBClient) (Client, error) {
 	return &awsClient{
@@ -116,6 +120,16 @@ func (c *awsClient) DeleteUser(u *User) error {
 
 // CreateGroup will create a group given
 func (c *awsClient) CreateGroup(g *Group) (*Group, error) {
+
+	group, err := c.client.FindGroupByDisplayName(g.DisplayName)
+	if err != nil && err != ErrGroupNotFound {
+		return nil, fmt.Errorf("find group in sso: %w", err)
+	}
+
+	if group != nil {
+		log.WithField("group", g.DisplayName).Info("group already exists in sso. skipping creation.")
+		return group, nil
+	}
 
 	newGroup, err := c.client.CreateGroup(g)
 	if err != nil {
